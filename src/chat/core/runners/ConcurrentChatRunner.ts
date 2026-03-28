@@ -1,0 +1,115 @@
+import * as vscode from 'vscode';
+import { ChatExecutor } from '../ChatExecutor';
+import { ChatMessage } from '../../historyManager';
+import { ILLMClient } from '../../../llm/types';
+import { ChatState } from '../../chatService';
+import { ensureMandatoryRoles } from '../../../llm/utils';
+import { Task } from '../Task';
+import { TaskMonitor, TaskMonitorStatus } from '../../taskMonitor';
+import { MemoryManager } from '../MemoryManager';
+import { DebugDB } from '../DebugDB';
+import { FileOpResult } from '../../fileOperations';
+
+/**
+ * ConcurrentChatRunner - 執行「並行/獨立」策略的執行器 (對應 structure.md -> [TP1])
+ * 
+ * [2026-03-25] [Implementing Concurrent Runner Logic] - Implemented parallel execution using Promise.all after refactoring ChatExecutor.
+ * 負責處理獨立任務的併發執行 (Concurrent Execution)。
+ */
+export class ConcurrentChatRunner extends ChatExecutor {
+
+    /**
+     * Overrides processOperationsBatch to execute all operations in parallel.
+     */
+    protected async processOperationsBatch(
+        state: any,
+        client: ILLMClient,
+        ops: any[],
+        providerId: string,
+        providerDisplayName: string,
+        taskName: string | undefined,
+        currentTask: Task | undefined,
+        turnCts: vscode.CancellationTokenSource,
+        globalCts?: vscode.CancellationTokenSource
+    ): Promise<FileOpResult[]> {
+        // [2026-03-25] [Implementing Concurrent Runner Logic] - TP1 strategy: Use Promise.all for independent ops.
+        const promises = ops.map(op => 
+            this.performSingleOperation(
+                state, client, op, providerId, providerDisplayName, taskName, currentTask, turnCts, globalCts
+            )
+        );
+        return await Promise.all(promises);
+    }
+
+    public async run(
+        state: {
+            messages: ChatMessage[],
+            isGenerating: boolean,
+            client: ILLMClient,
+            generateId: () => string,
+            updateWebview: () => void,
+            broadcast: (msg: any) => void,
+            acquireFileLock: (path: string) => Promise<() => void>
+        },
+        dynamicSystemPrompt: string,
+        images: string[],
+        globalCts?: vscode.CancellationTokenSource,
+        streamCts?: vscode.CancellationTokenSource,
+        taskPrompt?: string
+    ) {
+        // 並行模式下，我們仍然維護一個主要狀態機
+        let currentState = ChatState.CHATTING;
+        let turnCount = 0;
+        const MAX_TURNS = 10; 
+
+        while (currentState !== ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
+            turnCount++;
+
+            if (currentState === ChatState.CHATTING) {
+                // 1. 訊息加權與 Context 管理 (M1)
+                MemoryManager.assignWeights(state.messages);
+                const prunedMessages = MemoryManager.prune(state.messages);
+
+                // [2026-03-25] Prompt Refinement - Unified System Message & Brief Task Name
+                const unifiedSystemPrompt = taskPrompt ? `${dynamicSystemPrompt}\n\n[CURRENT_TASK_INSTRUCTION]\n${taskPrompt}` : dynamicSystemPrompt;
+
+                const turnMessages: { role: any, content: string }[] = [{ role: 'system', content: unifiedSystemPrompt }];
+                turnMessages.push(...prunedMessages
+                    .filter(m => !m.content.startsWith('[DEBUG]'))
+                    .map((m: any) => ({ role: m.role as any, content: m.content })));
+                const finalPromptMessages = ensureMandatoryRoles(turnMessages);
+
+                // 2. 建立並行任務 Task (T1)
+                const task = new Task(
+                    state.generateId(),
+                    'ConcurrentTask',
+                    dynamicSystemPrompt,
+                    {} as any,
+                    state.messages
+                );
+
+                // 3. AI 串流解析與執行 (AI1 -> AI2 -> CHUNK -> T2)
+                const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, undefined, 'ConcurrentTask', task);
+
+                // 4. 紀錄審計日誌
+                const db = DebugDB.getInstance(this.context);
+                state.messages.forEach(m => db.logMessageState(m, turnCount));
+
+                // [2026-03-25] [Testing & Bug-fixing] - Unify DONE markers to [@@DONE@@] but keep legacy [DONE] support.
+                const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+
+                if (isDone && !result.hasOps) {
+                    const am = task.assistantMessage;
+                    TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                    currentState = ChatState.IDLE; // AI 明確宣告完成
+                } else if (result.hasOps) {
+                    currentState = ChatState.CHATTING;
+                } else {
+                    currentState = ChatState.IDLE;
+                }
+            }
+        }
+        state.isGenerating = false;
+        state.updateWebview();
+    }
+}

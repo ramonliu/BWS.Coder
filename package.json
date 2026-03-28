@@ -1,0 +1,195 @@
+{
+  "name": "bws-coder",
+  "displayName": "BWS.Coder - AI程式工程師",
+  "description": "AI-powered development assistant using Ollama local models",
+  "version": "0.1.18",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BWS/bws-coder"
+  },
+  "publisher": "BWS",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "ollama",
+    "code generation",
+    "debug",
+    "refactor",
+    "testing"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bws-coder",
+          "title": "BWS.Coder",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "bws-coder": [
+        {
+          "type": "webview",
+          "id": "bwsCoder.chatView",
+          "name": "AI 助理聊天",
+          "icon": "media/icon.png",
+          "contextualTitle": "BWS.Coder"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "bwsCoder.openLogPanel",
+        "title": "BWS.Coder: View AI Logs",
+        "category": "BWS.Coder",
+        "icon": "$(output)"
+      },
+      {
+        "command": "bwsCoder.chat",
+        "title": "開啟 AI 聊天 (側邊欄)",
+        "category": "BWS.Coder",
+        "icon": {
+          "light": "media/icon.png",
+          "dark": "media/icon.png"
+        }
+      },
+      {
+        "command": "bwsCoder.openChatPanel",
+        "title": "開啟 AI 聊天 (全螢幕)",
+        "category": "BWS.Coder",
+        "icon": {
+          "light": "media/icon.png",
+          "dark": "media/icon.png"
+        }
+      },
+      {
+        "command": "bwsCoder.selectModel",
+        "title": "BWS.Coder: 選擇 AI 模型",
+        "category": "BWS.Coder"
+      },
+      {
+        "command": "bwsCoder.configure",
+        "title": "BWS.Coder: 設定 LLM 參數",
+        "category": "BWS.Coder"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "bwsCoder.openLogPanel",
+          "group": "navigation@1",
+          "when": "view == bwsCoder.chatView"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "bwsCoder.openChatPanel",
+          "group": "navigation@0",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "BWS.Coder",
+      "properties": {
+        "bwsCoder.temperature": {
+          "type": "number",
+          "default": 0.3,
+          "description": "生成溫度 (0-1，越低越精確)",
+          "order": 1
+        },
+        "bwsCoder.maxTokens": {
+          "type": "number",
+          "default": 4096,
+          "description": "最大輸出 token 數",
+          "order": 2
+        },
+        "bwsCoder.language": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "zh-TW",
+            "zh-CN",
+            "en"
+          ],
+          "description": "輸出語言",
+          "order": 6
+        },
+        "bwsCoder.debugMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "除錯模式：開啟後將在界面顯示狀態機進度與詳細日誌。",
+          "order": 10
+        },
+        "bwsCoder.saveRawStream": {
+          "type": "boolean",
+          "default": false,
+          "description": "儲存原始串流：開啟後將儲存來自 AI 的原始數據串流內容 (Raw Stream Data) 至 Log 目錄。",
+          "order": 10.1
+        },
+        "bwsCoder.saveAiRequest": {
+          "type": "boolean",
+          "default": false,
+          "description": "儲存 AI 請求：開啟後將發送給 AI 的完整請求對象 (Request Payload) 儲存至 Log 目錄。",
+          "order": 10.2
+        },
+        "bwsCoder.groupChatMaxRounds": {
+          "type": "number",
+          "default": 0,
+          "description": "群組聊天最大對話輪數限制 (0 表示不限制)",
+          "order": 11
+        },
+        "bwsCoder.maxTurnsPerStep": {
+          "type": "number",
+          "default": 30,
+          "description": "工作流每個步驟的最大對話輪數 (防止無限迴圈)。設定為 0 表示不限制，但建議保留安全值。",
+          "order": 11.1
+        },
+        "bwsCoder.heartbeatTimeout": {
+          "type": "number",
+          "default": 30,
+          "description": "AI 回應偵測逾時 (秒)。Local LLM 會自動乘以 10 倍 (即 300 秒)。",
+          "order": 12
+        },
+        "bwsCoder.autoFallback": {
+          "type": "boolean",
+          "default": false,
+          "description": "當主要 LLM 失敗時，是否自動切換至備援 LLM。建議在工作流中關閉，以確保任務準確性。",
+          "order": 13
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2",
+    "@vscode/vsce": "^3.7.1"
+  },
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
+}

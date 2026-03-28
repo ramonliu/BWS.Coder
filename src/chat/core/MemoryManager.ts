@@ -1,0 +1,148 @@
+import { ChatMessage } from '../historyManager';
+import { getHasActionRegex, getPruneBlockRegex } from '../constants';
+
+
+/**
+ * MemoryManager - Handles context window optimization.
+ * [2026-03-25] [Implementing Smart Memory Pruning] - Added smart block pruning for successful file operations and refined weighting.
+ */
+export class MemoryManager {
+    /**
+     * Assigns importance weights to messages based on their role and content types.
+     * Higher weight (up to 1.0) means more likely to be kept.
+     */
+    // [2026-03-28] [State-Machine-Parser] - Reconstruct AI-readable context from sequential blocks[]
+    public static buildApiContent(msg: ChatMessage): string {
+        if (!msg.blocks || msg.blocks.length === 0) {
+            // Legacy message
+            return msg.content || '';
+        }
+
+        let text = '';
+        for (const block of msg.blocks) {
+            if (block.type === 'speak') {
+                text += block.text || '';
+            } else if (block.type === 'action') {
+                if (block.action === 'read' || block.action === 'execute') {
+                    text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                } else if (block.action === 'create' || block.action === 'modify' || block.action === 'replace') {
+                    text += `[@@ ${block.action}:${block.filePath} @@]\n${block.content ?? ''}\n[@@ eof @@]\n`;
+                } else {
+                    text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                }
+            }
+            // Ignore 'think' type, thought tokens shouldn't be added to past context typically, 
+            // or if they are they are managed by the LLM client adapter natively for prolonged reasoning.
+        }
+        return text;
+    }
+
+    public static assignWeights(messages: ChatMessage[]): void {
+        messages.forEach((m, index) => {
+            // Already assigned or manually set? Keep it.
+            if (m.weight !== undefined && m.weight > 0) return;
+
+            // Default weight logic
+            if (m.role === 'system') {
+                m.weight = 1.0;
+            } else if (m.role === 'user') {
+                // [2026-03-25] RESCUE consistency - System rescue messages are critical (localized support)
+                if (m.content.includes('[System Rescue]') || m.content.includes('[系統自我救援]') || m.content.includes('[系统自我救援]')) {
+                    m.weight = 1.0;
+                } else {
+                    m.weight = 1.0;
+                }
+            } else if (m.role === 'assistant') {
+                // [2026-03-28] [State-Machine-Parser] - Check blocks[] first, fallback to regex for old messages
+                const hasActions = (m.blocks && m.blocks.some(b => b.type === 'action')) || getHasActionRegex().test(m.content);
+                m.weight = hasActions ? 0.8 : 0.4;
+            } else {
+                m.weight = 0.5;
+            }
+
+            // [Heuristic] Execution results: Error is much more important than Success
+            if (m.content.includes('[Execution Result]')) {
+                if (m.content.includes('failed')) {
+                    m.weight = 0.9;
+                } else if (m.content.includes('succeeded')) {
+                    m.weight = 0.4;
+                }
+            }
+            
+            // Turn-based decay: messages older than 20 turns decay by 20%
+            const age = messages.length - 1 - index;
+            if (age > 20 && m.weight < 1.0) {
+                m.weight *= 0.8;
+            }
+        });
+    }
+
+    /**
+     * Pruning Logic - Identifies successful file operations to compress the history.
+     */
+    private static getSuccessfulPaths(messages: ChatMessage[]): Set<string> {
+        const paths = new Set<string>();
+        for (const m of messages) {
+            if (m.role === 'user' && m.content.includes('[Execution Result]')) {
+                // Regex matches: > create `path` succeeded
+                const matches = m.content.matchAll(/> (?:create|modify|replace) `(.*?)` succeeded/g);
+                for (const match of matches) {
+                    paths.add(match[1].trim());
+                }
+            }
+        }
+        return paths;
+    }
+
+    /**
+     * Prunes or summarizes messages to fit within a context budget.
+     * Returns a new array of messages for the LLM payload.
+     */
+    public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 2000): ChatMessage[] {
+        const successes = this.getSuccessfulPaths(messages);
+
+        return messages
+            .filter(m => (m.content && m.content.trim().length > 0) || (m.attachments && m.attachments.length > 0))
+            .map(m => {
+            // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
+            let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m) : m.content;
+
+            // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the `[@@ ... @@]` syntax in history. 
+            // If we completely remove the tags and replace with `[System Note...]`, the AI assumes it should output `[System Note...]` in the future instead of real tags.
+            if (m.role === 'assistant' && content.includes('[@@')) {
+                content = content.replace(getPruneBlockRegex(), (match, action, path, code) => {
+                    const cleanPath = path.trim();
+                    // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)
+                    if (successes.has(cleanPath)) {
+                        return '';
+                    }
+                    return match;
+                });
+            }
+
+            // Never prune high-weight messages (User instructions / System prompt)
+            if (m.weight && m.weight >= 1.0) return { ...m, content };
+
+            // If content is very long and weight is low, summarize it
+            if (content.length > maxCharsPerMessage) {
+                const weight = m.weight || 0.5;
+                
+                // Summarization depth depends on weight
+                if (weight < 0.5) {
+                    // Deep compression
+                    const summary = `[Compressed: ${m.role} message (${content.length} chars, weight ${weight.toFixed(1)}) - Content hidden to save context]`;
+                    return { ...m, content: summary, isPruned: true, pruneReason: 'low_weight_compression' };
+                } else if (weight < 0.9) {
+                    // Partial compression: Keep start and end
+                    const keep = Math.floor(maxCharsPerMessage / 2);
+                    const head = content.slice(0, keep);
+                    const tail = content.slice(-keep);
+                    const summary = `${head}\n\n... (Pruned ${content.length - maxCharsPerMessage} chars for efficiency) ...\n\n${tail}`;
+                    return { ...m, content: summary, isPruned: true, pruneReason: 'length_limit' };
+                }
+            }
+
+            return { ...m, content };
+        });
+    }
+}

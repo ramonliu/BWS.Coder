@@ -49,6 +49,8 @@ If you are performing multiple actions, you **MUST** close the current action wi
 <!-- [2026-03-27] [Task-Prompt-Fix] - Clarify execute command syntax and forbid closing tags -->
 - **`execute`**: `[@@ execute:command @@]` (No closing tag).
   **Example**: `[@@ execute:npm run test @@]` (Notice: No extra `@@` inside the command)
+  **Unity Builds**: ALWAYS include `-logFile -` in Unity batchmode commands to ensure output is visible and prevent heart-beat timeouts.
+  - **Correct Unity Example**: `[@@ execute:Start-Process -FilePath "Unity.exe" -ArgumentList "-batchmode", "-projectPath", ".", "-executeMethod", "Build", "-quit", "-logFile", "-" -Wait -NoNewWindow @@]`
   **STOP GENERATING** immediately after this tag. Wait for the result in the next turn.
   **CRITICAL**: NEVER hallucinate or assume the result of a command. NEVER say "Tests passed" without seeing the real output.
 

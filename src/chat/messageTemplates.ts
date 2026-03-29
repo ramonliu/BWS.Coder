@@ -168,26 +168,35 @@ export class MessageTemplates {
     }
 
     public static renderThinkingBox(thinking: string, isGenerating: boolean, isThinking?: boolean, msgId?: string): string {
+        // [2026-03-30] UX Refinement - Only show the box if there's actual text.
+        // This allows renderAssistantMessage to show "正在預入中..." until the first chunk arrives.
         if (!thinking) return '';
-        const showThinkingState = isGenerating && isThinking !== false;
-        const status = showThinkingState ? '正在思考中...' : '思考完畢';
+        
+        // [2026-03-30] Fix - 嚴格判斷：isThinking === true 才代表「思考中」；
+        // isThinking === false 代表「思考完畢但正在說話」；
+        // 若 !isGenerating 則串流已結束，一律為「思考完畢」。
+        const showThinkingState = isGenerating === true && isThinking === true;
+        const status = showThinkingState ? '思考中...' : '思考完畢';
+        
+        const content = `<div class="thinking-text">${this.escapeHtml(thinking)}</div>`;
 
         return this.renderBaseBlock({
             id: msgId,
             typeClass: 'block-think',
             icon: showThinkingState ? `<span class="spin">${this.ICONS.thinking}</span>` : this.ICONS.thinking,
             title: status,
-            contentHtml: `<div class="thinking-text">${this.escapeHtml(thinking)}</div>`,
-            isCollapsible: true,
+            contentHtml: content,
+            isCollapsible: true, // 思考塊一向可摺疊
             collapsed: true, // 依照要求，預設摺疊
             isThinking: showThinkingState,
             collapsibleType: 'thinking',
-            subId: 'think' // 訊息內通常只有一個思考塊
+            subId: 'think'
         });
     }
 
     public static renderInitialLoader(): string {
-        return `<div class="initial-loader"><span class="spin">${this.ICONS.funnel}</span> 正在預入中...</div>`;
+        // [2026-03-30] Fix - 狀態文字對齊用戶要求：「預入中...」 = 送出 request 後至第一個 chunk 到來前
+        return `<div class="initial-loader"><span class="spin">${this.ICONS.funnel}</span> 預入中...</div>`;
     }
 
     // [2026-03-28] [UI State Render] - Added isSuccess and executionResult parameters
@@ -347,18 +356,28 @@ export class MessageTemplates {
         });
     }
 
+    // [2026-03-30] Fix - 改用 renderBaseBlock 結構，確保 streaming 狀態也有 block-header（icon 行）
     public static renderStreamingLabel(action: string, path: string): string {
         const labels: Record<string, string> = {
-            create: '建檔中', modify: '修改中', replace: '局部修改中', 'delete': '刪除中',
-            execute: '執行中', 'execute-status': '處理中', 'execute-result': '結果傳回中'
+            create: '待建檔...', modify: '待修改...', replace: '待局部修改...', 'delete': '待刪除...',
+            execute: '待執行...', read: '讀取中...', 'execute-status': '處理中...', 'execute-result': '結果傳回中...'
+        };
+        const actionIcons: Record<string, string> = {
+            create: this.ICONS.file, modify: this.ICONS.file, replace: this.ICONS.file,
+            'delete': this.ICONS.error, execute: this.ICONS.code, read: this.ICONS.code
         };
         const labelText = labels[action] || action;
+        const icon = actionIcons[action] || this.ICONS.thinking;
 
-        return `
-            <div class="file-op-label streaming block-container" data-type="streaming" data-subid="${this.escapeHtml(path)}">
-                <span class="spin">${this.ICONS.thinking}</span> <span class="streaming-text">${labelText}: <code>${this.escapeHtml(path)}</code></span><span class="dots"></span>
-            </div>
-        `;
+        return this.renderBaseBlock({
+            typeClass: `block-fileop ${action} pending streaming`,
+            icon: `<span class="spin">${icon}</span>`,
+            title: `${labelText} ${this.escapeHtml(path)}`,
+            contentHtml: `<span class="dots"></span>`,
+            isCollapsible: false,
+            collapsibleType: 'fileop',
+            subId: path
+        });
     }
 
     public static renderAttachments(attachments: Attachment[]): string {

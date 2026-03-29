@@ -1,10 +1,17 @@
 import { MessageBlock } from '../historyManager';
-import { PATTERN_OP_START, PATTERN_OP_EOF, FILE_OP_ACTIONS } from '../constants';
+import { FILE_OP_ACTIONS, PATTERN_OP_EOF } from '../constants';
+import { stripMarkdownCodeBlocks } from '../fileOperations';
 
+type ParserState = 'TEXT' | 'TAG' | 'CONTENT';
+
+/**
+ * StreamingParser - A robust state-machine based scanner for AI output streams.
+ * [2026-03-30] [Parser-Refactor-StateMachine] - Replaced Regex with scanner to avoid bracket issues (like [math]).
+ */
 export class StreamingParser {
     private blocks: MessageBlock[] = [];
-    private lineBuffer: string = '';
-    private state: 'SPEAK' | 'ACTION_MULTI' = 'SPEAK';
+    private state: ParserState = 'TEXT';
+    private buffer: string = '';
     private currentActionBlock: MessageBlock | null = null;
     private generateId: () => string;
 
@@ -18,146 +25,172 @@ export class StreamingParser {
 
     /**
      * Feed a network stream chunk into the parser.
-     * Returns an array of newly closed/ready action blocks for background execution.
      */
     public pushChunk(chunk: string): MessageBlock[] {
-        let textToProcess = this.lineBuffer + chunk;
-        let lines = textToProcess.split('\n');
-        
-        // The last element is always the remainder after the last \n
-        // (If it strictly ends with \n, pop() returns an empty string)
-        this.lineBuffer = lines.pop() || '';
-        
+        this.buffer += chunk;
         const readyOps: MessageBlock[] = [];
-
-        for (const line of lines) {
-            // Restore the \n for exact fidelity in strings
-            this.processLine(line + '\n', readyOps); 
-        }
-
+        this.scan(readyOps);
         return readyOps;
     }
 
     /**
-     * Call this when the stream entirely finishes to flush the buffer.
+     * Call this when the stream entirely finishes to flush the remaining buffer.
      */
     public close(): MessageBlock[] {
         const readyOps: MessageBlock[] = [];
-        if (this.lineBuffer) {
-            this.processLine(this.lineBuffer, readyOps);
-            this.lineBuffer = '';
-        }
         
-        // If an action block was left open at EOF, close it forcefully
-        if (this.state === 'ACTION_MULTI' && this.currentActionBlock) {
+        // Handle remaining buffer at EOF
+        if (this.buffer) {
+            if (this.state === 'TEXT') {
+                this.appendToSpeak(this.buffer);
+            } else if (this.state === 'TAG') {
+                // AI stopped mid-tag? Try process what we have
+                this.processFullTag(this.buffer, readyOps, true);
+            } else if (this.state === 'CONTENT') {
+                // AI stopped without eof? Force close
+                this.currentActionBlock!.content += this.buffer;
+            }
+            this.buffer = '';
+        }
+
+        // Final cleanup of open action blocks
+        if (this.state === 'CONTENT' && this.currentActionBlock) {
+            this.currentActionBlock.content = stripMarkdownCodeBlocks(this.currentActionBlock.content || '');
             this.currentActionBlock.isClosed = true;
             readyOps.push(this.currentActionBlock);
             this.currentActionBlock = null;
-            this.state = 'SPEAK';
+            this.state = 'TEXT';
         }
-        
+
         return readyOps;
     }
 
-    private processLine(line: string, readyOps: MessageBlock[]) {
-        if (this.state === 'SPEAK') {
-            // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for multi-line action starts
-            const multiRegex = new RegExp(PATTERN_OP_START, 'i');
-            const multiMatch = line.match(multiRegex);
-            if (multiMatch && (multiMatch[1].toLowerCase() === 'create' || multiMatch[1].toLowerCase() === 'write' || multiMatch[1].toLowerCase() === 'modify' || multiMatch[1].toLowerCase() === 'replace')) {
-                const action = multiMatch[1].toLowerCase();
-                const filePath = multiMatch[2].trim();
-                
-                this.currentActionBlock = {
-                    id: this.generateId(),
-                    type: 'action',
-                    action,
-                    filePath,
-                    content: '',
-                    isPending: true,
-                    isClosed: false
-                };
-                this.blocks.push(this.currentActionBlock);
-                this.state = 'ACTION_MULTI';
-                
-                // If there's text ON THE SAME LINE before the tag, it belongs to SPEAK
-                const prefix = line.substring(0, multiMatch.index);
-                if (prefix) {
-                    this.appendToSpeak(prefix);
+    private scan(readyOps: MessageBlock[]) {
+        while (this.buffer.length > 0) {
+            if (this.state === 'TEXT') {
+                const tagStartIndex = this.buffer.indexOf('[@@');
+                if (tagStartIndex === -1) {
+                    // Only hold back if the buffer ends with a potential tag start
+                    const match = this.buffer.match(/\[@?$/);
+                    const holdBack = match ? match[0].length : 0;
+                    
+                    const flushLength = this.buffer.length - holdBack;
+                    if (flushLength > 0) {
+                        this.appendToSpeak(this.buffer.substring(0, flushLength));
+                        this.buffer = this.buffer.substring(flushLength);
+                    }
+                    break;
+                } else {
+                    // Flush text before tag
+                    this.appendToSpeak(this.buffer.substring(0, tagStartIndex));
+                    this.buffer = this.buffer.substring(tagStartIndex);
+                    this.state = 'TAG';
                 }
+            } else if (this.state === 'TAG') {
+                const tagEndIndex = this.buffer.indexOf('@@', 3); // 3 skips '[@@'
+                if (tagEndIndex === -1) {
+                    // Tag might be very long or contain brackets.
+                    // But if it's way too long without closure, it's likely just talking.
+                    if (this.buffer.length > 1000 || (this.buffer.includes('\n') && this.buffer.length > 500)) {
+                        this.appendToSpeak(this.buffer);
+                        this.buffer = '';
+                        this.state = 'TEXT';
+                    }
+                    break; // Wait for more data
+                } else {
+                    // Check if it's followed by ']'
+                    let consumeLen = 2;
+                    if (this.buffer.length > tagEndIndex + 2 && this.buffer[tagEndIndex + 2] === ']') {
+                        consumeLen = 3;
+                    }
+                    const tagFull = this.buffer.substring(0, tagEndIndex + consumeLen);
+                    this.buffer = this.buffer.substring(tagEndIndex + consumeLen);
+                    this.processFullTag(tagFull, readyOps);
+                }
+            } else if (this.state === 'CONTENT') {
+                // In CONTENT mode, we look for [@@ eof @@]
+                const eofRegex = new RegExp(PATTERN_OP_EOF, 'i');
+                const eofMatch = this.buffer.match(eofRegex);
 
-                // If there's text after the start block on the SAME line, append it to content!
-                const idx = multiMatch[0].length + multiMatch.index!;
-                const remainder = line.substring(idx);
-                if (remainder) {
-                    this.processLineForMulti(remainder, readyOps);
+                if (eofMatch) {
+                    const matchIndex = eofMatch.index!;
+                    const contentBefore = this.buffer.substring(0, matchIndex);
+                    this.currentActionBlock!.content += contentBefore;
+                    // Fix content once closed
+                    this.currentActionBlock!.content = stripMarkdownCodeBlocks(this.currentActionBlock!.content || '');
+                    this.currentActionBlock!.isClosed = true;
+                    readyOps.push(this.currentActionBlock!);
+                    
+                    this.buffer = this.buffer.substring(matchIndex + eofMatch[0].length);
+                    this.currentActionBlock = null;
+                    this.state = 'TEXT';
+                } else {
+                    // Only hold back if the buffer ends with something that could be the start of PATTERN_OP_EOF
+                    // [@@ eof @@] is about 15 chars max. We look for '[' near the end.
+                    const lastOpenBracket = this.buffer.lastIndexOf('[');
+                    const holdBackLen = (lastOpenBracket !== -1 && (this.buffer.length - lastOpenBracket) < 20)
+                        ? (this.buffer.length - lastOpenBracket)
+                        : 0;
+
+                    const flushLength = this.buffer.length - holdBackLen;
+                    if (flushLength > 0) {
+                        this.currentActionBlock!.content += this.buffer.substring(0, flushLength);
+                        this.buffer = this.buffer.substring(flushLength);
+                    }
+                    break;
                 }
-                return;
             }
-
-            // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for single-line action starts
-            const singleMatch = line.match(multiRegex);
-            if (singleMatch && (singleMatch[1].toLowerCase() === 'read' || singleMatch[1].toLowerCase() === 'execute' || singleMatch[1].toLowerCase() === 'delete')) {
-                const action = singleMatch[1].toLowerCase();
-                const filePath = singleMatch[2].trim();
-                
-                // Text before the tag belongs to speak
-                const prefix = line.substring(0, singleMatch.index);
-                if (prefix) {
-                    this.appendToSpeak(prefix);
-                }
-
-                const block: MessageBlock = {
-                    id: this.generateId(),
-                    type: 'action',
-                    action,
-                    filePath,
-                    isPending: true,
-                    isClosed: true // Single line actions are inherently closed immediately
-                };
-                this.blocks.push(block);
-                readyOps.push(block);
-                
-                // If there's text after, it belongs back in SPEAK state
-                const idx = singleMatch[0].length + singleMatch.index!;
-                const remainder = line.substring(idx);
-                if (remainder) {
-                    // Usually this is just a \n after the tag.
-                    this.appendToSpeak(remainder);
-                }
-                return;
-            }
-
-            // Normal text
-            this.appendToSpeak(line);
-        } else if (this.state === 'ACTION_MULTI') {
-            this.processLineForMulti(line, readyOps);
         }
     }
 
-    private processLineForMulti(line: string, readyOps: MessageBlock[]) {
-        // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for EOF
-        const eofRegex = new RegExp(PATTERN_OP_EOF, 'i');
-        const eofMatch = line.match(eofRegex);
-        if (eofMatch) {
-            const idx = eofMatch.index!;
-            const beforeEof = line.substring(0, idx);
-            if (beforeEof) {
-                this.currentActionBlock!.content += beforeEof;
-            }
-            
-            this.currentActionBlock!.isClosed = true;
-            readyOps.push(this.currentActionBlock!);
-            this.currentActionBlock = null;
-            this.state = 'SPEAK';
-            
-            const remainder = line.substring(idx + eofMatch[0].length);
-            if (remainder) {
-                // Eof found, remaining text goes purely to SPEAK state
-                this.processLine(remainder, readyOps);
-            }
+    private processFullTag(rawTag: string, readyOps: MessageBlock[], isFinal: boolean = false) {
+        // Strip [@@ and @@] or @@
+        let inner = rawTag.trim();
+        if (inner.startsWith('[@@')) inner = inner.substring(3);
+        if (inner.endsWith('@@]')) inner = inner.substring(0, inner.length - 3);
+        else if (inner.endsWith('@@')) inner = inner.substring(0, inner.length - 2);
+
+        // Find first colon to split action and path
+        const colonIndex = inner.indexOf(':');
+        if (colonIndex === -1) {
+            // Not a valid tag format, revert to text
+            this.appendToSpeak(rawTag);
+            this.state = 'TEXT';
+            return;
+        }
+
+        let action = inner.substring(0, colonIndex).trim().toLowerCase();
+        // [2026-03-30] [Parser-Metadata-Support] - Handle optional metadata in curly braces (e.g. execute{Out-String}: ...)
+        if (action.includes('{')) {
+            action = action.split('{')[0].trim();
+        }
+
+        const filePath = inner.substring(colonIndex + 1).trim();
+
+        // Validate action
+        const validActions = FILE_OP_ACTIONS.split('|');
+        if (!validActions.includes(action)) {
+            this.appendToSpeak(rawTag);
+            this.state = 'TEXT';
+            return;
+        }
+
+        this.currentActionBlock = {
+            id: this.generateId(),
+            type: 'action',
+            action,
+            filePath,
+            content: '',
+            isPending: true,
+            isClosed: (action === 'read' || action === 'execute' || action === 'delete')
+        };
+        this.blocks.push(this.currentActionBlock);
+
+        if (this.currentActionBlock.isClosed) {
+            readyOps.push(this.currentActionBlock);
+            this.state = 'TEXT';
         } else {
-            this.currentActionBlock!.content += line;
+            this.state = 'CONTENT';
         }
     }
 

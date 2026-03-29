@@ -104,7 +104,7 @@ export abstract class ChatExecutor {
             role: 'assistant',
             content: '',
             thinking: '',
-            isThinking: true,
+            isThinking: false, // [2026-03-30] Fix: Don't assume thinking at the start; wait for first chunk
             timestamp: new Date(),
             providerName: providerName || client.getProviderName(),
             taskName: taskName,
@@ -166,6 +166,7 @@ export abstract class ChatExecutor {
             for await (const chunk of stream) {
                 if (globalCts?.token.isCancellationRequested || turnCts.token.isCancellationRequested) break;
                 if (chunk.thinking || chunk.content) {
+                    // [2026-03-30] UX Fix - Only transition away from "預入中" when first chunk arrives
                     if (currentTask && currentTask.state === TaskState.IDLE) {
                         currentTask.transition(TaskState.THINKING);
                         const activeProviderId = providerId || client.getProviderId();
@@ -174,10 +175,12 @@ export abstract class ChatExecutor {
                     }
                 }
                 if (chunk.thinking) {
+                    assistantMessage.isThinking = true; // [2026-03-30] Confirm we are in thinking mode
                     fullThinking += chunk.thinking;
                     assistantMessage.thinking = fullThinking;
                 }
                 if (chunk.content) {
+                    assistantMessage.isThinking = false; // [2026-03-30] Chunk is not think -> Thinking is finished
                     fullContent += chunk.content;
                     assistantMessage.content = fullContent; // Just to preserve raw output
 
@@ -405,6 +408,12 @@ export abstract class ChatExecutor {
         );
         state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
 
+        // [2026-03-30] [Safety-Validation] - Pre-Execution check for AI protocol violations
+        const validationError = this.validateOperation(op);
+        if (validationError) {
+            return { action: op.action, success: false, error: validationError, filePath: op.filePath || 'unknown' };
+        }
+
         let res: FileOpResult;
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         const cleanFilePath = op.filePath?.replace(/^(?:path:)/i, '').trim() || '';
@@ -434,5 +443,38 @@ export abstract class ChatExecutor {
             });
         }
         return res;
+    }
+
+    /**
+     * [2026-03-30] AI Protocol Guard - Detects bad patterns and teaches the AI correct usage.
+     */
+    private validateOperation(op: any): string | null {
+        const action = op.action;
+        const content = (op.content || '').trim();
+        const filePath = op.filePath || '';
+
+        // Case 1: AI tries to use terminal command (redirection) for file creation
+        if (action === 'execute') {
+            const redirectionRegex = />\s*.+|>>\s*.+|Set-Content|Out-File|Tee-Object\s+-FilePath/i;
+            if (redirectionRegex.test(content)) {
+                return `❌ **協定違規 (Protocol Violation)**：偵測到您試圖透過 \`execute\` 指令來寫入檔案（包含重定向或 Set-Content）。\n本專案嚴禁使用終端機指令建檔，請改用標準的 \`create\` 或 \`modify\` 標籤。\n\n**正確範例**：\n[@@ create:${filePath || '路徑'} @@]\n(檔案內容)\n[@@ eof @@]`;
+            }
+        }
+
+        // Case 2: Content operations are empty
+        if ((action === 'create' || action === 'modify' || action === 'replace') && !content) {
+            return `❌ **格式錯誤**：\`${action}\` 操作的內容區塊不能為空。如果您想刪除檔案，請改用 \`delete\`。\n\n**正確範例**：\n[@@ ${action}:${filePath || '路徑'} @@]\n(具體代碼)\n[@@ eof @@]`;
+        }
+
+        // Case 3: Malformed replace block
+        if (action === 'replace') {
+            const hasStart = content.includes('[@@<@@]');
+            const hasDivider = content.includes('[@@=@@]');
+            if (!hasStart || !hasDivider) {
+                return `❌ **格式錯誤**：\`replace\` 區塊必須包含完整的 \`[@@<@@]\` (舊代碼) 與 \`[@@=@@]\` (分隔符) 標籤。\n\n**正確範例**：\n[@@ replace:${filePath || '路徑'} @@]\n[@@<@@]\n(待替換的原始段落)\n[@@=@@]\n(替換後的目標段落)\n[@@>@@]\n[@@ eof @@]`;
+            }
+        }
+
+        return null;
     }
 }

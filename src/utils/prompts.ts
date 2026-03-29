@@ -204,6 +204,7 @@ Example: [@@ execute:dotnet build @@]
 ## Critical Rules
 - **STRICT SYNTAX ENFORCEMENT**: You MUST use EXACTLY \`[@@ action:file @@]\` to open. You MUST use EXACTLY \`[@@ eof @@]\` to close. DO NOT invent your own syntax.
 - **NO INNER COMMENTS OR PLACEHOLDERS**: Inside the action blocks, you MUST output ONLY the raw, compile-ready file content.
+- **NO MARKDOWN CODE BLOCKS**: ❌ NEVER wrap code in markdown delimiters (triple backticks) inside create/modify/replace blocks. Output the raw content directly.
 - **File Accuracy**: Please find the correct file path based on the file list.
 - **Build Discipline**: Only run build commands after changing executable source code.
 - **ACT, DON'T ANNOUNCE**: Just execute immediately using action blocks.

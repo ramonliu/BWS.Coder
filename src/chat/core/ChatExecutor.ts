@@ -459,6 +459,17 @@ export abstract class ChatExecutor {
             if (redirectionRegex.test(content)) {
                 return `❌ **協定違規 (Protocol Violation)**：偵測到您試圖透過 \`execute\` 指令來寫入檔案（包含重定向或 Set-Content）。\n本專案嚴禁使用終端機指令建檔，請改用標準的 \`create\` 或 \`modify\` 標籤。\n\n**正確範例**：\n[@@ create:${filePath || '路徑'} @@]\n(檔案內容)\n[@@ eof @@]`;
             }
+
+            // [2026-03-30] Case 1b: AI uses Start-Process -Wait which causes PowerShell to hang
+            // When Unity/process exits, PowerShell's -Wait may not propagate the exit signal promptly,
+            // causing BWS.Coder to wait for the silent-timeout (up to 60 min for heavy tasks).
+            const startProcessWaitRegex = /Start-Process\b.*-Wait\b/i;
+            if (startProcessWaitRegex.test(content)) {
+                // 嘗試從指令中提取 -FilePath 的值，以提供更精確的修正範例
+                const filePathMatch = content.match(/-FilePath\s+["']?([^"'\s,]+)["']?/i);
+                const exePath = filePathMatch ? filePathMatch[1] : '"路徑\\to\\executable.exe"';
+                return `❌ **指令格式錯誤 (Command Pattern Warning)**：偵測到您使用了 \`Start-Process -Wait\`。\n\n**問題原因**：\`Start-Process -Wait\` 會讓 PowerShell 在子程序結束後延遲回傳信號，導致 BWS.Coder 無法即時偵測程序退出，造成長時間無效等待。\n\n**正確做法**：請直接用 \`&\` 呼叫可執行檔，讓 PowerShell 自身等待其完成：\n\n\`\`\`powershell\n& ${exePath} -batchmode -quit -logFile -\n\`\`\`\n\n請修正指令後重試。`;
+            }
         }
 
         // Case 2: Content operations are empty

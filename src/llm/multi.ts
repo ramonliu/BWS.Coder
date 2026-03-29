@@ -111,7 +111,8 @@ export class MultiLLMClient implements ILLMClient {
   async* chat(
     messages: LLMMessage[],
     onProgress?: (chunk: { content?: string, thinking?: string }) => void | Promise<void>,
-    onFirstChunk?: () => void | Promise<void>,
+    // [2026-03-30] Fix - 對齊 UniversalLLMClient 的型別，切換後能即時更新 UI 顯示的 provider 名稱
+    onFirstChunk?: (info?: { provider: string, model: string, keyIndex?: number }) => void | Promise<void>,
     cancellationToken?: vscode.CancellationToken,
     images?: string[],
     dumpPath?: string,
@@ -120,14 +121,15 @@ export class MultiLLMClient implements ILLMClient {
   ): AsyncGenerator<{ content?: string, thinking?: string }> {
     const clients = this.getActiveClients();
     let lastError: any = null;
-    let fallbackTriggered = false;
+    let switchCount = 0;
 
     if (clients.length === 0) {
       throw new Error('請先在 Provider Manager 中啟用至少一個 AI 提供者');
     }
 
     const config = vscode.workspace.getConfiguration('bwsCoder');
-    const autoFallback = config.get<boolean>('autoFallback') ?? false;
+    // [2026-03-30] Fix - 預設改為 true，讓自動切換預設開啟，無需手動設定
+    const autoFallback = config.get<boolean>('autoFallback') ?? true;
 
     // 如果指定了 providerId，優先尋找該 provider
     let startIndex = 0;
@@ -142,11 +144,23 @@ export class MultiLLMClient implements ILLMClient {
     for (let i = 0; i < clients.length; i++) {
       const clientIndex = (startIndex + i) % clients.length;
       const client = clients[clientIndex];
+
+      // [2026-03-30] Fix - 預先偵測 API Keys 是否已用光，直接跳過，不等 error
+      if (await client.isExhausted()) {
+        console.log(`[MultiLLM] 客戶端 ${clientIndex} (${client.getProviderName()}) Keys 已耗盡，跳過`);
+        if (!autoFallback) {
+          // [2026-03-30] UX Fix - 當備援沒打勾時，給出明確錯誤說明
+          throw new Error(`優先服務 **${client.getProviderName()}** 的 API Keys 已用完。\n因為您未開啟「自動切換備援 (Auto Fallback)」，已停止執行。\n提示：請至 Provider Manager 補充 Keys，或勾選以允許自動切換。`);
+        }
+        continue;
+      }
+
       try {
-        if (i > 0 && autoFallback && !fallbackTriggered) {
-          // [2026-03-29] [Fix-Fallback-Visibility] - Notify user about switching even if onProgress is undefined
-          yield { content: `\n[系統通知: 優先服務失敗，正在切換至備援服務...]` };
-          fallbackTriggered = true;
+        if (i > 0 && switchCount === 0) {
+          // [2026-03-30] Fix - 通知文字改為清楚說明切換到哪個 Provider
+          const nextName = client.getProviderName();
+          yield { content: `\n\n> [BWS.Coder] API Keys 已用完，已自動切換至 **${nextName}**，繼續處理...\n\n` };
+          switchCount++;
         }
 
         const generator = client.chat(messages, onProgress, onFirstChunk, cancellationToken, images, dumpPath, undefined, taskName);
@@ -162,8 +176,10 @@ export class MultiLLMClient implements ILLMClient {
         lastError = error;
         console.error(`[MultiLLM] 客戶端 ${clientIndex} 錯誤:`, error);
 
-        // 如果不允許自動換 LLM，則在第一個失敗時就跳出
-        if (!autoFallback) break;
+        // [2026-03-30] UX Fix - 當不允許自動換 LLM 時，附上原因拋出
+        if (!autoFallback) {
+          throw new Error(`優先服務 **${client.getProviderName()}** 發生連線異常：${error.message || String(error)}\n因為您未開啟「自動切換備援 (Auto Fallback)」，已停止執行。`);
+        }
 
         if (i < clients.length - 1) {
           if (cancellationToken?.isCancellationRequested) throw error;
@@ -171,7 +187,7 @@ export class MultiLLMClient implements ILLMClient {
         }
       }
     }
-    throw lastError || new Error('所有 AI 服務皆無法連線');
+    throw lastError || new Error('所有 AI 服務的 API Keys 皆已耗盡或無法連線，請至 Provider Manager 更新 Keys');
   }
 
   async* generate(

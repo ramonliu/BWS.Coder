@@ -86,8 +86,8 @@ export class MessageTemplates {
 
     public static renderAssistantMessage(thinkingHtml: string, contentHtml: string, attsHtml: string, id: string, providerName?: string, taskName?: string): string {
         const isInitialLoading = !thinkingHtml && !contentHtml && !attsHtml;
+        // [2026-03-30] D-3 Fix - 移除冗餘中間變數 bodyHtml = bodyContent
         const bodyContent = isInitialLoading ? this.renderInitialLoader() : ((thinkingHtml || '') + (contentHtml || '') + (attsHtml || ''));
-        const bodyHtml = bodyContent;
         let style = '';
         let typeClass = 'message assistant block-assistant';
 
@@ -104,7 +104,7 @@ export class MessageTemplates {
             typeClass: typeClass,
             icon: this.ICONS.assistant,
             title: this.formatAssistantTitle(providerName, taskName),
-            contentHtml: bodyHtml,
+            contentHtml: bodyContent,
             isCollapsible: false, // AI 主泡泡預設不摺疊
             collapsibleType: 'message',
             style
@@ -372,7 +372,8 @@ export class MessageTemplates {
         return this.renderBaseBlock({
             typeClass: `block-fileop ${action} pending streaming`,
             icon: `<span class="spin">${icon}</span>`,
-            title: `${labelText} ${this.escapeHtml(path)}`,
+            // [2026-03-30] BUG-5 Fix - 統一為冒號格式，與 renderFileOpLabel 一致，避免切換時閣動
+            title: `${labelText}: ${this.escapeHtml(path)}`,
             contentHtml: `<span class="dots"></span>`,
             isCollapsible: false,
             collapsibleType: 'fileop',

@@ -2,12 +2,10 @@ export class Messaging {
     public static get(): string {
         return `
             function smartSyncCore(eb, nb) {
-                // 1. 同步屬性與類別 (修正過度保護導致動畫不停止的問題)
-                var wasExpanded = eb.classList.contains('expanded');
+                // [2026-03-30] BUG-2 Fix - 移除手動補 expanded 的矛盾邏輯；展開狀態統一由 blockStates 管理
+                // 只同步 className（不保留舊 expanded），block 展開狀態由上層 render() 的 blockStates 恢復邏輯負責
                 if (eb.className !== nb.className) {
                     eb.className = nb.className;
-                    if (wasExpanded) eb.classList.add('expanded');
-                    else eb.classList.remove('expanded');
                 }
                 if (eb.style.cssText !== nb.style.cssText) eb.style.cssText = nb.style.cssText;
 
@@ -50,9 +48,8 @@ export class Messaging {
                     var eSubBlocks = Array.from(eContent.querySelectorAll(':scope > .block-container, :scope > .initial-loader'));
                     var nSubBlocks = Array.from(nContent.querySelectorAll(':scope > .block-container, :scope > .initial-loader'));
 
-                    // [2026-03-30] [Bugfix-NarrativeSync] - 
-                    // 如果結構單純只有 SubBlocks 且數量一致，才遞迴同步；
-                    // 若包含 Narrative Text (speak)，且內容有變，則直接 innerHTML 同步以確保文字不漏失。
+                    // [2026-03-30] BUG-1 Fix - 遞迴同步後不再覆蓋 innerHTML，避免雙重同步毀掉展開狀態與 DOM 事件。
+                    // 只有結構不符（data-type/data-subid 不同）或子塊數不等時，才 fallback 為整體覆蓋。
                     if (eSubBlocks.length === nSubBlocks.length && eSubBlocks.length > 0) {
                         var structureMatch = true;
                         for (var i = 0; i < eSubBlocks.length; i++) {
@@ -63,18 +60,20 @@ export class Messaging {
                         }
 
                         if (structureMatch) {
-                            // 同步子區塊內容
+                            // 結構比對成功：只遞迴同步子塊，不覆蓋整個 content
                             for (var i = 0; i < eSubBlocks.length; i++) {
                                 smartSyncCore(eSubBlocks[i], nSubBlocks[i]);
                             }
-                            // [關鍵修正] 同步非區塊的文字內容 (interleaved narrative text)
-                            // 如果 innerHTML 不同但 SubBlocks 一樣，很有可能是中間的「說話文字」變了
-                            // 這裡採保守策略：如果扣除 subblocks 後還有差異，才更新
-                            if (eContent.innerHTML !== nContent.innerHTML) {
-                                // 檢查是否只有文字節點差異
+                            // 同步 interleaved narrative text（子塊之間的純文字節點）
+                            // 透過比對文字節點來決定是否需要更新，避免破壞子塊狀態
+                            var eTextContent = eContent.innerText;
+                            var nTextContent = nContent.innerText;
+                            if (eTextContent !== nTextContent) {
+                                // 只有文字內容有差異時，才對 content 整體更新（此時文字節點為主，子塊已同步過）
                                 eContent.innerHTML = nContent.innerHTML;
                             }
                         } else {
+                            // 結構不符：整體覆蓋為唯一安全選擇
                             eContent.innerHTML = nContent.innerHTML;
                         }
                     } else if (eContent.innerHTML !== nContent.innerHTML) {
@@ -179,10 +178,11 @@ export class Messaging {
                         }
                     }
                     
-                    var spinner = d.querySelector('.spin');
-                    if (spinner) {
-                        if (m.isThinking && !spinner.classList.contains('spin')) spinner.classList.add('spin');
-                        else if (!m.isThinking) spinner.classList.remove('spin');
+                    // [2026-03-30] INFO-1 Fix - 精確 selector，避免選到 action block 的 spinner
+                    var thinkSpinner = d.querySelector('.block-think .block-icon .spin, .block-think .block-icon span.spin');
+                    if (thinkSpinner) {
+                        if (m.isThinking && !thinkSpinner.classList.contains('spin')) thinkSpinner.classList.add('spin');
+                        else if (!m.isThinking) thinkSpinner.classList.remove('spin');
                     }
                 });
 

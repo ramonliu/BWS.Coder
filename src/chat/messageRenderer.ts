@@ -100,12 +100,9 @@ export class MessageRenderer {
         const protected_blocks: string[] = [];
         let text = content.trim(); // Trim at start to prevent leading \n translating into <br> gap
 
-        // 1. 處理檔案操作區塊：
-        // 為了避免使用者看到綠色的「✅ 已建立」誤認為已寫入硬碟，
-        // 一律渲染為「建檔中...」(Streaming Label)，不管它的 Markdown 區塊是否已經閉合。
-        
-        // 1. 處理任務清單 (Task List / Plan)
-        // 增強型正則：支援更多標題關鍵字，如「執行計畫」
+        // [2026-03-30] INFO-2 Fix - 步驟編號重整
+        // Step 1. 處理任務清單 (Task List / Plan)
+        // 增強型正則：支援更多標题關鍵字，如「執行計畫」
         const taskRegex = /^(?:###|##)?\s*(任務計畫|任務清單|計畫|執行計畫)\s*\n((?:[-*] \[[ x/\]].*\n?)+)/im;
         const taskMatch = text.match(taskRegex);
         if (taskMatch) {
@@ -124,11 +121,11 @@ export class MessageRenderer {
             text = text.replace(taskMatch[0], id);
         }
 
-        // Fallback: strip any residual or manually typed raw tags from display
+        // Step 2. 移除残留的原始 tag（Fallback）
         const blockRegex = /\[@@\s*(?:create|modify|replace|read|execute|delete):[^\]]+@@\][\s\S]*?(?:\[@@\s*eof\s*@@\]|(?=\[@@ )|$)/gi;
         text = text.replace(blockRegex, () => '');
 
-        // 3. 處理一般的程式碼區塊 (非 File Op)
+        // Step 3. 處理一般的程式碼區塊 (非 File Op)
         const codeRegex = /```(\w*)\n([\s\S]*?)(?:```|$)/g;
         text = text.replace(codeRegex, (m, lang, code) => {
             const id = `__PROTECTED_BLOCK_${protected_blocks.length}__`;
@@ -136,7 +133,7 @@ export class MessageRenderer {
             return id;
         });
 
-        // [2026-03-25] Narrative Step Completion Signal - Support narrative markers in UI rendering.
+        // Step 4. 處理任務完成訊號
         const doneRegex = /\[@@DONE@@\]|\[DONE\]|\([\s\S]+?\)已完成任務/g;
         text = text.replace(doneRegex, () => {
             const id = `__PROTECTED_BLOCK_${protected_blocks.length}__`;
@@ -144,7 +141,7 @@ export class MessageRenderer {
             return id;
         });
 
-        // 5. 對剩餘文字進行 HTML 轉義與基礎 Markdown 解析
+        // Step 5. 對剩餘文字進行 HTML 轉義與基礎 Markdown 解析
         let esc = MessageTemplates.escapeHtml(text.trim());
 
         // 移除多餘換行 (如果是兩個保護塊相連)
@@ -162,7 +159,7 @@ export class MessageRenderer {
             .replace(/<\/ul>\n<ul>/g, '')
             .replace(/\n/g, '<br>');
 
-        // 5. 最後把所有保護塊填回
+        // Step 6. 將所有保護塊填回
         for (let i = 0; i < protected_blocks.length; i++) {
             const placeholder = `__PROTECTED_BLOCK_${i}__`;
             esc = esc.split(placeholder).join(protected_blocks[i]);

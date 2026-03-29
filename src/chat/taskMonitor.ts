@@ -55,9 +55,11 @@ export class TaskMonitor {
             this.stats = new Map(saved.filter(([_, s]) => {
                 return s.status === TaskMonitorStatus.IDLE || s.status === TaskMonitorStatus.THINKING || s.status === TaskMonitorStatus.EXECUTING || (now - s.lastUpdate < ONE_DAY);
             }));
-            // 強制將所有狀態設為 IDLE，避免重啟後卡在 EXECUTING
+            // // [2026-03-29] Dashboard-Fix - Force IDLE on load to prevent stuck status after crash
             this.stats.forEach(s => {
-                if (s.status === TaskMonitorStatus.EXECUTING || (s as any).status === 'Online') s.status = TaskMonitorStatus.IDLE;
+                if (s.status === TaskMonitorStatus.EXECUTING || s.status === TaskMonitorStatus.THINKING || (s as any).status === 'Online') {
+                    s.status = TaskMonitorStatus.IDLE;
+                }
             });
         } catch (e) {
             console.error('Failed to load Task stats:', e);

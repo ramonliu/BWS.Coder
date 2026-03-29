@@ -2,7 +2,8 @@ export class Toolbar {
     public static getHtml(): string {
         return `
             <div class="toolbar">
-                <button class="toolbar-btn" onclick="popOutDashboard()" title="Task 監控">
+                <!-- [2026-03-29] Dashboard-Fix - Directly call window.popOutDashboard() for direct popup -->
+                <button class="toolbar-btn" onclick="window.popOutDashboard()" title="Task 監控">
                     <svg viewBox="0 0 16 16"><path d="M13.5 1h-11C1.67 1 1 1.67 1 2.5v11c0 .83.67 1.5 1.5 1.5h11c.83 0 1.5-.67 1.5-1.5v-11c0-.83-.67-1.5-1.5-1.5zm0 12.5h-11v-11h11v11zM7 11h2V5H7v6zm-4 0h2V8H3v3zm8 0h2V7h-2v4z"/></svg>
                 </button>
                 <button class="toolbar-btn" onclick="window.toggleWorkflow()" title="任務編排" style="color:#4ec9b0"><svg viewBox="0 0 16 16"><path d="M10 11H6V5h4v6zm1 1H5V4h6v8zM3 7H1V5h2v2zm0 4H1V9h2v2zm12-4h-2V5h2v2zm0 4h-2V9h2v2zM8 3h2V1H8v2zm0 12h2v-2H8v2z"/></svg></button>

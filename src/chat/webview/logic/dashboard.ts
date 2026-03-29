@@ -12,10 +12,15 @@ export class Dashboard {
             }
             window.toggleDashboard = toggleDashboard; 
 
+            // // [2026-03-29] Dashboard-Fix - Explicit window attachment and robust postMessage
             function popOutDashboard() {
                 const overlay = document.getElementById('dashboardOverlay');
                 if (overlay) overlay.classList.remove('active');
-                vscode.postMessage({ command: 'popOutDashboard' });
+                if (typeof vscode !== 'undefined') {
+                    vscode.postMessage({ command: 'popOutDashboard' });
+                } else {
+                    console.error('vscode api is not available');
+                }
             }
             window.popOutDashboard = popOutDashboard;
 

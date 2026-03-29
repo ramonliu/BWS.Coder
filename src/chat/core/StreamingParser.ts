@@ -1,4 +1,5 @@
 import { MessageBlock } from '../historyManager';
+import { PATTERN_OP_START, PATTERN_OP_EOF, FILE_OP_ACTIONS } from '../constants';
 
 export class StreamingParser {
     private blocks: MessageBlock[] = [];
@@ -60,9 +61,10 @@ export class StreamingParser {
 
     private processLine(line: string, readyOps: MessageBlock[]) {
         if (this.state === 'SPEAK') {
-            // Check for multi-line action starts
-            const multiMatch = line.match(/\[@@\s*(create|write|modify|replace):\s*([^\]\n]+?)(?:\s*@@\s*\]?|\s*\]|\s*$)/i);
-            if (multiMatch) {
+            // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for multi-line action starts
+            const multiRegex = new RegExp(PATTERN_OP_START, 'i');
+            const multiMatch = line.match(multiRegex);
+            if (multiMatch && (multiMatch[1].toLowerCase() === 'create' || multiMatch[1].toLowerCase() === 'write' || multiMatch[1].toLowerCase() === 'modify' || multiMatch[1].toLowerCase() === 'replace')) {
                 const action = multiMatch[1].toLowerCase();
                 const filePath = multiMatch[2].trim();
                 
@@ -93,9 +95,9 @@ export class StreamingParser {
                 return;
             }
 
-            // Check for single-line action starts
-            const singleMatch = line.match(/\[@@\s*(read|execute|delete):\s*([^\]\n]+?)(?:\s*@@\s*\]?|\s*\]|\s*$)/i);
-            if (singleMatch) {
+            // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for single-line action starts
+            const singleMatch = line.match(multiRegex);
+            if (singleMatch && (singleMatch[1].toLowerCase() === 'read' || singleMatch[1].toLowerCase() === 'execute' || singleMatch[1].toLowerCase() === 'delete')) {
                 const action = singleMatch[1].toLowerCase();
                 const filePath = singleMatch[2].trim();
                 
@@ -134,8 +136,9 @@ export class StreamingParser {
     }
 
     private processLineForMulti(line: string, readyOps: MessageBlock[]) {
-        // Look for eof
-        const eofMatch = line.match(/\[@@\s*eof\s*@@\]/i);
+        // [2026-03-30] [Bugfix-TagStripping] - Use centralized robust regex for EOF
+        const eofRegex = new RegExp(PATTERN_OP_EOF, 'i');
+        const eofMatch = line.match(eofRegex);
         if (eofMatch) {
             const idx = eofMatch.index!;
             const beforeEof = line.substring(0, idx);

@@ -143,11 +143,8 @@ export class MultiLLMClient implements ILLMClient {
       const clientIndex = (startIndex + i) % clients.length;
       const client = clients[clientIndex];
       try {
-        if (i > 0 && onProgress && !fallbackTriggered) {
-          // 如果 autoFallback 為 false，且這不是第一個嘗試的 client，則應在進入此 loop 之前或之時攔截
-          // 但為了邏輯清晰，我們在 try block 內部判斷
-          if (!autoFallback) break;
-
+        if (i > 0 && autoFallback && !fallbackTriggered) {
+          // [2026-03-29] [Fix-Fallback-Visibility] - Notify user about switching even if onProgress is undefined
           yield { content: `\n[系統通知: 優先服務失敗，正在切換至備援服務...]` };
           fallbackTriggered = true;
         }

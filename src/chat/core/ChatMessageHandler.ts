@@ -54,18 +54,20 @@ export class ChatMessageHandler {
         const config = vscode.workspace.getConfiguration('bwsCoder');
         const outputLang = config.get<string>('language') as any || 'zh-TW';
 
-        // [2026-03-25] Prompt Optimization - Load base system prompt from external MD file
-        let basePrompt: string | undefined;
+        // [2026-03-29] [Workflow-ModularPrompt] - Load Persona and Action Format separately
+        let personaPrompt = '';
+        let actionFormatPrompt = '';
         try {
-            const promptPath = path.join(this.context.extensionPath, 'prompts', 'chat_system.md');
-            if (fs.existsSync(promptPath)) {
-                basePrompt = fs.readFileSync(promptPath, 'utf8');
-            }
+            const personaPath = path.join(this.context.extensionPath, 'prompts', 'Programer.md');
+            const formatPath = path.join(this.context.extensionPath, 'prompts', 'ActionFormat.md');
+            
+            if (fs.existsSync(personaPath)) personaPrompt = fs.readFileSync(personaPath, 'utf8');
+            if (fs.existsSync(formatPath)) actionFormatPrompt = fs.readFileSync(formatPath, 'utf8');
         } catch (err) {
-            console.error('[BWS Coder] Failed to read system prompt file:', err);
+            console.error('[BWS Coder] Failed to read prompt files:', err);
         }
 
-        const systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, basePrompt);
+        let systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + actionFormatPrompt);
         const workspaceFolders = vscode.workspace.workspaceFolders;
 
         const images: string[] = [];
@@ -107,7 +109,8 @@ export class ChatMessageHandler {
             }
         }
 
-        let finalSystemPrompt = projectContext ? `${systemPrompt}\n\n[DYNAMIC_PROJECT_CONTEXT]\n${projectContext}` : systemPrompt;
+        // [2026-03-29] [Workflow-ModularPrompt] - Keep Persona and Action Format separate for runners
+        let functionalPrompt = projectContext ? `${actionFormatPrompt}\n\n[DYNAMIC_PROJECT_CONTEXT]\n${projectContext}` : actionFormatPrompt;
 
         let content = text;
         if (attachments) {
@@ -141,9 +144,12 @@ export class ChatMessageHandler {
                 } catch (e) { console.error(`Error reading skill directory ${dir}:`, e); }
             }
             if (skillContents.length > 0) {
-                finalSystemPrompt += `\n\n[DYN_SKILLS_CONTEXT]\n${skillContents.join('\n\n')}\n`;
+                functionalPrompt += `\n\n[DYN_SKILLS_CONTEXT]\n${skillContents.join('\n\n')}\n`;
             }
         }
+        
+        // Assemble the display system prompt for components that still need it
+        systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + functionalPrompt);
 
         // Auto-initialize planning files
         if (workspaceFolders && workspaceFolders.length > 0) {
@@ -238,44 +244,62 @@ export class ChatMessageHandler {
             service.updateWebview();
         }
 
-        if (effectiveMode === 'Group' || isGroupCmd) {
-            // [2026-03-27] [Feature-GroupPersona] - Auto-generate personas based on the topic
-            let personas = undefined;
-            const topicMatch = actualTextToRun.trim().match(/^\/(group|debate)\s*(.*)/i);
-            const topic = topicMatch ? topicMatch[2].trim() : '';
+        try {
+            if (effectiveMode === 'Group' || isGroupCmd) {
+                // [2026-03-27] [Feature-GroupPersona] - Auto-generate personas based on the topic
+                let personas = undefined;
+                const topicMatch = actualTextToRun.trim().match(/^\/(group|debate)\s*(.*)/i);
+                const topic = topicMatch ? topicMatch[2].trim() : '';
 
-            if (!topic) {
-                vscode.window.showWarningMessage('請在 /group 或 /debate 後面加上討論主題。例如：/group AI是否會取代人類工作');
-                service.isGenerating = false;
-                service.updateWebview();
-                return;
-            }
+                if (!topic) {
+                    vscode.window.showWarningMessage('請在 /group 或 /debate 後面加上討論主題。例如：/group AI是否會取代人類工作');
+                    service.isGenerating = false;
+                    service.updateWebview();
+                    return;
+                }
 
-            // [2026-03-28] [CLEAR_DASHBOARD_CARDS] - Clear existing task cards when starting a group chat Discussion
-            TaskMonitor.getInstance().clearAll();
-            personas = await this.handleAIGroupPlan(topic, service, outputLang);
-            await this.runner.runSerialStrategy(commonState, finalSystemPrompt, images, true, service.globalCts, service.streamCts, initialTaskPrompt, personas);
-        } else if (effectiveMode === 'Workflow') {
-            if (workflowSteps.length > 0) {
-                await this.runner.runWorkflowStrategy(commonState, finalSystemPrompt, images, workflowSteps, actualTextToRun, service.globalCts, service.streamCts);
+                // [2026-03-28] [CLEAR_DASHBOARD_CARDS] - Clear existing task cards when starting a group chat Discussion
+                TaskMonitor.getInstance().clearAll();
+                personas = await this.handleAIGroupPlan(topic, service, outputLang);
+                await this.runner.runSerialStrategy(commonState, personaPrompt, functionalPrompt, images, true, service.globalCts, service.streamCts, initialTaskPrompt, personas);
+            } else if (effectiveMode === 'Workflow') {
+                if (workflowSteps.length > 0) {
+                    await this.runner.runWorkflowStrategy(commonState, personaPrompt, functionalPrompt, images, workflowSteps, actualTextToRun, service.globalCts, service.streamCts);
+                } else {
+                    // Workflow tab 已選但步驟為空，提示使用者
+                    const warnMsg = { id: service.generateId(), role: 'system' as const, content: '[Workflow] 尚未設定任何步驟，或所有步驟已停用。請在 Workflow 面板中新增步驟並儲存。', timestamp: new Date() };
+                    service.messages.push(warnMsg);
+                    service.isGenerating = false;
+                    service.updateWebview();
+                    return;
+                }
+            } else if (effectiveMode === 'Concurrent') { // 新增對並行模式的支援 (對應 structure.md)
+                await this.runner.runConcurrentStrategy(commonState, personaPrompt, functionalPrompt, images, service.globalCts, service.streamCts, initialTaskPrompt);
             } else {
-                // Workflow tab 已選但步驟為空，提示使用者
-                const warnMsg = { id: service.generateId(), role: 'system' as const, content: '[Workflow] 尚未設定任何步驟，或所有步驟已停用。請在 Workflow 面板中新增步驟並儲存。', timestamp: new Date() };
-                service.messages.push(warnMsg);
-                service.isGenerating = false;
-                service.updateWebview();
-                return;
+                await this.runner.runSerialStrategy(commonState, personaPrompt, functionalPrompt, images, false, service.globalCts, service.streamCts, initialTaskPrompt);
             }
-        } else if (effectiveMode === 'Concurrent') { // 新增對並行模式的支援 (對應 structure.md)
-            await this.runner.runConcurrentStrategy(commonState, finalSystemPrompt, images, service.globalCts, service.streamCts, initialTaskPrompt);
-        } else {
-            await this.runner.runSerialStrategy(commonState, finalSystemPrompt, images, false, service.globalCts, service.streamCts, initialTaskPrompt);
+        } catch (error: any) {
+            // // [2026-03-29] [Fix-Error-UI] - Catch runner errors and show them if not already in history
+            console.error('[ChatMessageHandler] Runner Error:', error);
+            
+            const lastMsg = service.messages[service.messages.length - 1];
+            const alreadyHasError = lastMsg && lastMsg.content && lastMsg.content.includes('[執行錯誤]');
+            
+            if (!alreadyHasError) {
+                const errorMsg: ChatMessage = {
+                    id: service.generateId(),
+                    role: 'system',
+                    content: `❌ **執行錯誤**: ${error.message || error}\n\n請檢查 API Key 額度是否充足，或嘗試重新整理提供者。`,
+                    timestamp: new Date()
+                };
+                service.messages.push(errorMsg);
+            }
+        } finally {
+            service.isGenerating = false;
+            // [2026-03-24] Feature - Persist chatMode into the session so it can be restored on load
+            this.historyManager.saveSession(service.currentSessionId, service.messages, service.currentChatMode);
+            service.updateWebview();
         }
-
-        service.isGenerating = false;
-        // [2026-03-24] Feature - Persist chatMode into the session so it can be restored on load
-        this.historyManager.saveSession(service.currentSessionId, service.messages, service.currentChatMode);
-        service.updateWebview();
     }
 
     // [2026-03-27] [Feature-Export] - Export chat history to markdown, xml, txt, or html

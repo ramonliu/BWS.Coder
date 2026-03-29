@@ -1,13 +1,23 @@
 // Centralized Regex Patterns for File Operations
 export const FILE_OP_ACTIONS = 'create|write|modify|replace|delete|execute|read';
 // [2026-03-27] [Fix-Parsing] - Make the trailing bracket `]` optional just in case AI drops it (e.g. `[@@ create:C:\path\to\file @@\n`)
-export const PATTERN_OP_START = `\\[@@\\s*(${FILE_OP_ACTIONS}):\\s*([^\\r\\n]+?)\\s*@@\\]?`;
+// [2026-03-30] [Bugfix-TagStripping] - Refine regex to be more robust against truncated or slightly malformed tags
+export const PATTERN_OP_START = `\\[@@\\s*(${FILE_OP_ACTIONS}):\\s*([^\\r\\n]+?)(?:\\s*@@\\]?|\\s*\\]|\\s*$)`;
+export const PATTERN_OP_EOF = `\\[@@\\s*eof\\s*@@\\]?`;
+// [2026-03-30] [Replace-Regex] - Internal tags for replace operation
+export const PATTERN_REPLACE_OLD = `\\[@@<@@\\]?`;
+export const PATTERN_REPLACE_DIV = `\\[@@=@@\\]?`;
+export const PATTERN_REPLACE_NEW = `\\[@@>@@\\]?`;
 
 /**
  * matches: [@@ action:path @@]
  * group 1 = action, group 2 = filePath
  */
 export const getFileOpRegex = () => new RegExp(PATTERN_OP_START, 'g');
+export const getEofRegex = () => new RegExp(PATTERN_OP_EOF, 'gi');
+export const getReplaceOldRegex = () => new RegExp(`^${PATTERN_REPLACE_OLD}[ \\t]*\\r?\\n?`, 'im');
+export const getReplaceDivRegex = () => new RegExp(`^${PATTERN_REPLACE_DIV}[ \\t]*\\r?\\n?`, 'im');
+export const getReplaceNewRegex = () => new RegExp(`^${PATTERN_REPLACE_NEW}[ \\t]*\\r?\\n?`, 'im');
 
 /**
  * matches: [@@ action:path @@] content [@@ eof @@]

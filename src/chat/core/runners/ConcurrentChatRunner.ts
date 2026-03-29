@@ -51,65 +51,69 @@ export class ConcurrentChatRunner extends ChatExecutor {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string,
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[],
         globalCts?: vscode.CancellationTokenSource,
         streamCts?: vscode.CancellationTokenSource,
         taskPrompt?: string
     ) {
-        // 並行模式下，我們仍然維護一個主要狀態機
         let currentState = ChatState.CHATTING;
         let turnCount = 0;
-        const MAX_TURNS = 10; 
+        const MAX_TURNS = 20;
 
-        while (currentState !== ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
-            turnCount++;
+        try {
+            while (currentState !== ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
+                turnCount++;
 
-            if (currentState === ChatState.CHATTING) {
-                // 1. 訊息加權與 Context 管理 (M1)
-                MemoryManager.assignWeights(state.messages);
-                const prunedMessages = MemoryManager.prune(state.messages);
+                if (currentState === ChatState.CHATTING) {
+                    // 1. Assign weights and prune for LLM context
+                    MemoryManager.assignWeights(state.messages);
+                    const prunedMessages = MemoryManager.prune(state.messages);
 
-                // [2026-03-25] Prompt Refinement - Unified System Message & Brief Task Name
-                const unifiedSystemPrompt = taskPrompt ? `${dynamicSystemPrompt}\n\n[CURRENT_TASK_INSTRUCTION]\n${taskPrompt}` : dynamicSystemPrompt;
+                    // [2026-03-29] [Workflow-ModularPrompt] - Use centralized smart assembly
+                    const unifiedSystemPrompt = this.getUnifiedSystemPrompt(personaPrompt, actionFormatPrompt, taskPrompt);
 
-                const turnMessages: { role: any, content: string }[] = [{ role: 'system', content: unifiedSystemPrompt }];
-                turnMessages.push(...prunedMessages
-                    .filter(m => !m.content.startsWith('[DEBUG]'))
-                    .map((m: any) => ({ role: m.role as any, content: m.content })));
-                const finalPromptMessages = ensureMandatoryRoles(turnMessages);
+                    const turnMessages: { role: any, content: string }[] = [{ role: 'system', content: unifiedSystemPrompt }];
+                    turnMessages.push(...prunedMessages
+                        .filter(m => !m.content.startsWith('[DEBUG]'))
+                        .map((m: any) => ({ role: m.role as any, content: m.content })));
+                    const finalPromptMessages = ensureMandatoryRoles(turnMessages);
 
-                // 2. 建立並行任務 Task (T1)
-                const task = new Task(
-                    state.generateId(),
-                    'ConcurrentTask',
-                    dynamicSystemPrompt,
-                    {} as any,
-                    state.messages
-                );
+                    // 建立本輪 Task 物件
+                    const task = new Task(
+                        state.generateId(),
+                        'ConcurrentChat',
+                        personaPrompt,
+                        {} as any,
+                        state.messages
+                    );
 
-                // 3. AI 串流解析與執行 (AI1 -> AI2 -> CHUNK -> T2)
-                const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, undefined, 'ConcurrentTask', task);
+                    // 3. AI 串流解析與執行 (AI1 -> AI2 -> CHUNK -> T2)
+                    // // [2026-03-29] [Fix-UI-Hang] - Ensure state is reset even on API failure
+                    const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, undefined, undefined, 'ConcurrentTask', task);
 
-                // 4. 紀錄審計日誌
-                const db = DebugDB.getInstance(this.context);
-                state.messages.forEach(m => db.logMessageState(m, turnCount));
+                    // 4. 紀錄審計日誌
+                    const db = DebugDB.getInstance(this.context);
+                    state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                // [2026-03-25] [Testing & Bug-fixing] - Unify DONE markers to [@@DONE@@] but keep legacy [DONE] support.
-                const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+                    // [2026-03-25] [Testing & Bug-fixing] - Unify DONE markers to [@@DONE@@] but keep legacy [DONE] support.
+                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
 
-                if (isDone && !result.hasOps) {
-                    const am = task.assistantMessage;
-                    TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
-                    currentState = ChatState.IDLE; // AI 明確宣告完成
-                } else if (result.hasOps) {
-                    currentState = ChatState.CHATTING;
-                } else {
-                    currentState = ChatState.IDLE;
+                    if (isDone && !result.hasOps) {
+                        const am = task.assistantMessage;
+                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                        currentState = ChatState.IDLE; // AI 明確宣告完成
+                    } else if (result.hasOps) {
+                        currentState = ChatState.CHATTING;
+                    } else {
+                        currentState = ChatState.IDLE;
+                    }
                 }
             }
+        } finally {
+            state.isGenerating = false;
+            state.updateWebview();
         }
-        state.isGenerating = false;
-        state.updateWebview();
     }
 }

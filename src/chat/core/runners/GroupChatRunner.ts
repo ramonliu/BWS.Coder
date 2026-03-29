@@ -20,7 +20,8 @@ export class GroupChatRunner extends ChatExecutor {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string,
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[],
         globalCts?: vscode.CancellationTokenSource,
         streamCts?: vscode.CancellationTokenSource,
@@ -29,15 +30,16 @@ export class GroupChatRunner extends ChatExecutor {
     ) {
         let currentState = ChatState.CHATTING;
         let turnCount = 0;
-        let groupChatIndex = 0;
-        let personaIndex = 0; // [2026-03-27] [Feature-GroupPersona] Track which persona is currently speaking
+        
+        // [2026-03-29] [Feature-Resume] - Determine starting rotation based on history
+        const resume = this.getResumeIndices(state, personas || [], (state.client as any).getActiveClients ? (state.client as any).getActiveClients() : [state.client]);
+        let groupChatIndex = resume.groupChatIndex;
+        let personaIndex = resume.personaIndex; 
 
-        // [2026-03-25] Prompt Optimization - Put Task Instruction at the absolute top for better focus
+        // [2026-03-29] [Workflow-ModularPrompt] - Use modular assembly logic
         let basePromptMessages: { role: any, content: string }[] = [];
-        if (taskPrompt) {
-            basePromptMessages.push({ role: 'system', content: `[CURRENT_TASK_INSTRUCTION]\n${taskPrompt}` });
-        }
-        basePromptMessages.push({ role: 'system', content: dynamicSystemPrompt });
+        const unifiedSystemPrompt = this.getUnifiedSystemPrompt(personaPrompt, actionFormatPrompt, taskPrompt);
+        basePromptMessages.push({ role: 'system', content: unifiedSystemPrompt });
 
         let allClients = (state.client as any).getActiveClients ? (state.client as any).getActiveClients() : [state.client];
         const availability = await Promise.all(allClients.map(async (c: any) => ({
@@ -69,87 +71,118 @@ export class GroupChatRunner extends ChatExecutor {
         }
         state.updateWebview();
 
-        while (currentState !== ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
-            turnCount++;
+        try {
+            while (currentState !== ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
+                turnCount++;
 
-            if (currentState === ChatState.CHATTING) {
-                // 1. Assign weights and prune for LLM context
-                MemoryManager.assignWeights(state.messages);
-                const prunedMessages = MemoryManager.prune(state.messages);
+                if (currentState === ChatState.CHATTING) {
+                    // 1. Assign weights and prune for LLM context
+                    MemoryManager.assignWeights(state.messages);
+                    const prunedMessages = MemoryManager.prune(state.messages);
 
-                let currentClient = state.client;
-                let providerName = undefined;
-                let groupPromptAddon = '';
+                    let providerId: string | undefined = undefined;
+                    let providerName = undefined;
+                    let groupPromptAddon = '';
 
-                if (groupChatClients.length > 0) {
-                    // [2026-03-27] [Feature-GroupPersona] Use AI-generated persona if available
-                    // If personas exist, they dictate the number of speakers and the rotation. The underlying providers just power them.
-                    if (personas && personas.length > 0) {
-                        const currentPersona = personas[personaIndex];
-                        providerName = currentPersona.name; // Display name in UI
-                        groupPromptAddon = `\n\n[群聊指令] 你現在的角色是「${currentPersona.name}」。\n${currentPersona.persona}\n\n請以這個身份，針對上文內容發表你的看法，或反駁其他人的觀點。\n⚠️ **注意：這是一場純文字對話辯論。請「直接輸出」你的發言內容，【絕對不要】使用 \`[@@ create:檔案路徑 @@]\` 等任何標籤來建立檔案，也不需要生成總結報告。**`;
-                        personaIndex = (personaIndex + 1) % personas.length;
-                        
-                        // Pick a client to power this persona (round-robin through available clients)
-                        currentClient = groupChatClients[groupChatIndex];
-                        groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
+                    if (groupChatClients.length > 0) {
+                        // [2026-03-27] [Feature-GroupPersona] Use AI-generated persona if available
+                        // If personas exist, they dictate the number of speakers and the rotation. The underlying providers just power them.
+                        if (personas && personas.length > 0) {
+                            const currentPersona = personas[personaIndex];
+                            providerName = currentPersona.name; // Display name in UI
+                            groupPromptAddon = `\n\n[群聊指令] 你現在的角色是「${currentPersona.name}」。\n${currentPersona.persona}\n\n請以這個身份，針對上文內容發表你的看法，或反駁其他人的觀點。\n⚠️ **注意：這是一場純文字對話辯論。請「直接輸出」你的發言內容，【絕對不要】使用 \`[@@ create:檔案路徑 @@]\` 等任何標籤來建立檔案，也不需要生成總結報告。**`;
+                            personaIndex = (personaIndex + 1) % personas.length;
+                            
+                            // [2026-03-29] [Fix-Fallback-Logic] - Use IDs instead of concrete clients
+                            providerId = groupChatClients[groupChatIndex].getProviderId();
+                            groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
+                        } else {
+                            // Fallback to legacy behavior: rotate through providers
+                            const client = groupChatClients[groupChatIndex];
+                            providerId = client.getProviderId();
+                            providerName = client.getProviderName();
+                            groupPromptAddon = `\n\n[群聊指令] 你現在是以 ${providerName} 的身份參與討論。請針對上文內容發表你的看法，或繼續執行未完成的任務。\n⚠️ **注意：若無剛性需求，請直接進行文字對話，不要建立檔案。**`;
+                            groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
+                        }
+                    }
+
+                    let turnMessages = [...basePromptMessages];
+                    turnMessages.push(...prunedMessages
+                        .filter(m => !m.content.startsWith('[DEBUG]'))
+                        .map((m: any) => ({ role: m.role as any, content: m.content })));
+                    let finalPromptMessages = ensureMandatoryRoles(turnMessages);
+
+                    if (groupPromptAddon) {
+                        const lastMsg = finalPromptMessages[finalPromptMessages.length - 1];
+                        if (lastMsg && (lastMsg.role as string) === 'user') lastMsg.content += groupPromptAddon;
+                        else finalPromptMessages.push({ role: 'user', content: groupPromptAddon });
+                    }
+
+                    // [2026-03-25] Prompt Optimization - Descriptive Task Name
+                    const descriptiveTaskName = taskPrompt ? `Group (${providerName || 'AI'}): ${taskPrompt.substring(0, 40).replace(/\n/g, ' ')}...` : `GroupChat: ${providerName || 'AI'}`;
+
+                    const task = new Task(
+                        state.generateId(),
+                        providerName || 'GroupChat',
+                        personaPrompt,
+                        {} as any,
+                        state.messages
+                    );
+                    
+                    // // [2026-03-29] [Fix-UI-Hang] - Ensure state is reset even on API failure
+                    // // [2026-03-29] [Fix-Fallback-Logic] - Use state.client (MultiLLMClient) with providerId target
+                    const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, providerId, providerName, descriptiveTaskName, task);
+
+                    // 2. Log full state to DebugDB for audit trail (async)
+                    const db = DebugDB.getInstance(this.context);
+                    state.messages.forEach(m => db.logMessageState(m, turnCount));
+
+                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+
+                    // [2026-03-27] User Preference: 0 means unlimited rounds
+                    const configMaxRounds = vscode.workspace.getConfiguration('bwsCoder').get<number>('groupChatMaxRounds');
+                    const maxRounds = configMaxRounds !== undefined ? configMaxRounds : 30;
+
+                    if (isDone && !result.hasOps) {
+                        const am = task.assistantMessage;
+                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                        currentState = ChatState.IDLE; // AI 明確宣告完成
+                    } else if (result.hasOps) {
+                        currentState = ChatState.CHATTING;
+                    } else if (groupChatClients.length > 0 && (maxRounds === 0 || turnCount < maxRounds)) {
+                        currentState = ChatState.CHATTING;
                     } else {
-                        // Fallback to legacy behavior: rotate through providers
-                        currentClient = groupChatClients[groupChatIndex];
-                        providerName = currentClient.getProviderName();
-                        groupPromptAddon = `\n\n[群聊指令] 你現在是以 ${providerName} 的身份參與討論。請針對上文內容發表你的看法，或繼續執行未完成的任務。\n⚠️ **注意：若無剛性需求，請直接進行文字對話，不要建立檔案。**`;
-                        groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
+                        currentState = ChatState.IDLE;
                     }
                 }
-
-                let turnMessages = [...basePromptMessages];
-                turnMessages.push(...prunedMessages
-                    .filter(m => !m.content.startsWith('[DEBUG]'))
-                    .map((m: any) => ({ role: m.role as any, content: m.content })));
-                let finalPromptMessages = ensureMandatoryRoles(turnMessages);
-
-                if (groupPromptAddon) {
-                    const lastMsg = finalPromptMessages[finalPromptMessages.length - 1];
-                    if (lastMsg && (lastMsg.role as string) === 'user') lastMsg.content += groupPromptAddon;
-                    else finalPromptMessages.push({ role: 'user', content: groupPromptAddon });
-                }
-
-                // [2026-03-25] Prompt Optimization - Descriptive Task Name
-                const descriptiveTaskName = taskPrompt ? `Group (${providerName || 'AI'}): ${taskPrompt.substring(0, 40).replace(/\n/g, ' ')}...` : `GroupChat: ${providerName || 'AI'}`;
-
-                const task = new Task(
-                    state.generateId(),
-                    providerName || 'GroupChat',
-                    dynamicSystemPrompt,
-                    {} as any,
-                    state.messages
-                );
-                const result = await this.executeAITurn(state, currentClient, finalPromptMessages, images, globalCts, streamCts, providerName, descriptiveTaskName, task);
-
-                // 2. Log full state to DebugDB for audit trail (async)
-                const db = DebugDB.getInstance(this.context);
-                state.messages.forEach(m => db.logMessageState(m, turnCount));
-
-                const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
-
-                // [2026-03-27] User Preference: 0 means unlimited rounds
-                const configMaxRounds = vscode.workspace.getConfiguration('bwsCoder').get<number>('groupChatMaxRounds');
-                const maxRounds = configMaxRounds !== undefined ? configMaxRounds : 30;
-
-                if (isDone && !result.hasOps) {
-                    const am = task.assistantMessage;
-                    TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
-                    currentState = ChatState.IDLE; // AI 明確宣告完成
-                } else if (result.hasOps) {
-                    currentState = ChatState.CHATTING;
-                } else if (groupChatClients.length > 0 && (maxRounds === 0 || turnCount < maxRounds)) {
-                    currentState = ChatState.CHATTING;
-                } else {
-                    currentState = ChatState.IDLE;
-                }
             }
+        } finally {
+            state.isGenerating = false;
+            state.updateWebview();
         }
-        state.isGenerating = false;
-        state.updateWebview();
+    }
+
+    // [2026-03-29] [Feature-Resume] - Scan history to find the next speaker in rotation
+    private getResumeIndices(state: any, personas: { name: string, persona: string }[], clients: any[]) {
+        const lastAI = [...state.messages].reverse().find(m => m.role === 'assistant');
+        if (!lastAI) return { personaIndex: 0, groupChatIndex: 0 };
+
+        const lastSpeaker = lastAI.taskName || lastAI.providerName || '';
+        let pIdx = 0;
+        let gIdx = 0;
+
+        if (personas.length > 0) {
+            const lastPIdx = personas.findIndex(p => lastSpeaker.includes(p.name));
+            if (lastPIdx !== -1) pIdx = (lastPIdx + 1) % personas.length;
+        }
+
+        // Advance groupChatIndex based on the provider name if possible
+        if (clients.length > 0) {
+            const lastProv = lastAI.providerName || '';
+            const lastGIdx = clients.findIndex((c: any) => lastProv.includes(c.getProviderName()));
+            if (lastGIdx !== -1) gIdx = (lastGIdx + 1) % clients.length;
+        }
+
+        return { personaIndex: pIdx, groupChatIndex: gIdx };
     }
 }

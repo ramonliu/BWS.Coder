@@ -2,7 +2,7 @@
   "name": "bws-coder",
   "displayName": "BWS.Coder - AI程式工程師",
   "description": "AI-powered development assistant using Ollama local models",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "repository": {
     "type": "git",
     "url": "https://github.com/BWS/bws-coder"
@@ -83,6 +83,16 @@
       {
         "command": "bwsCoder.configure",
         "title": "BWS.Coder: 設定 LLM 參數",
+        "category": "BWS.Coder"
+      },
+      {
+        "command": "bwsCoder.popOutDashboard",
+        "title": "開啟 Task 監控 Dashbord",
+        "category": "BWS.Coder"
+      },
+      {
+        "command": "bwsCoder.manageProviders",
+        "title": "管理 AI 提供者與模型",
         "category": "BWS.Coder"
       }
     ],

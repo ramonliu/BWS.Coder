@@ -11,6 +11,31 @@ import { StreamingParser } from './StreamingParser';
 
 export abstract class ChatExecutor {
     constructor(protected context: vscode.ExtensionContext) { }
+    
+    // // [2026-03-29] [Workflow-ModularPrompt] - Centralized smart prompt assembly
+    protected getUnifiedSystemPrompt(personaPrompt: string, actionFormatPrompt: string, taskPrompt?: string, stepRole?: string): string {
+        const strippedTaskPrompt = taskPrompt ? taskPrompt.trimStart() : '';
+        const isOverride = strippedTaskPrompt.startsWith('[@@PROMPT@@]');
+        
+        let identity = personaPrompt;
+        let instruction = taskPrompt || '';
+        
+        if (isOverride) {
+            identity = strippedTaskPrompt.substring(12).trim();
+            instruction = ''; // Task prompt is now the identity
+        }
+        
+        // Layering: Identity + Action Format + Instructions
+        let result = `${identity}\n\n${actionFormatPrompt}`;
+        
+        if (stepRole) {
+            result = `[CURRENT_STEP: ${stepRole}]\n${instruction ? `Instruction: ${instruction}\n\n` : ''}${result}`;
+        } else if (instruction) {
+            result = `[CURRENT_TASK_INSTRUCTION]\n${instruction}\n\n${result}`;
+        }
+        
+        return result;
+    }
 
     protected prepareDebugLog(client: ILLMClient, messages: any[], images?: string[], taskName?: string): string | undefined {
         const config = vscode.workspace.getConfiguration('bwsCoder');
@@ -66,6 +91,7 @@ export abstract class ChatExecutor {
         images: string[],
         globalCts?: vscode.CancellationTokenSource,
         streamCts?: vscode.CancellationTokenSource,
+        providerId?: string,
         providerName?: string,
         taskName?: string,
         currentTask?: Task
@@ -92,7 +118,6 @@ export abstract class ChatExecutor {
 
         let fullContent = '';
         let fullThinking = '';
-        const providerId = client.getProviderId();
         const streamStartTime = Date.now();
         const turnCts = new vscode.CancellationTokenSource();
         if (state.setStreamCts) state.setStreamCts(turnCts);
@@ -104,7 +129,9 @@ export abstract class ChatExecutor {
         let allResultsCount = 0; // Tracks total operations executed for the final feedback count
 
         try {
-            TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName, undefined, true);
+            // [2026-03-29] [Fix-Fallback-Logic] - Use provided ID for monitor, or default to client's ID
+            const activeProviderId = providerId || client.getProviderId();
+            TaskMonitor.getInstance(this.context).updateStatus(activeProviderId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName, undefined, true);
             
             // [2026-03-25] Prompt Optimization - Unify multiple system messages
             let finalMessages = [...messages];
@@ -119,6 +146,7 @@ export abstract class ChatExecutor {
 
             const dumpPath = this.prepareDebugLog(client, finalMessages, images, taskName);
 
+            // [2026-03-29] [Fix-Fallback-Logic] - Pass providerId to client.chat to ensure MultiLLMClient starts from the right place
             const stream = client.chat(
                 finalMessages,
                 undefined,
@@ -131,7 +159,7 @@ export abstract class ChatExecutor {
                 turnCts.token,
                 images,
                 dumpPath,
-                undefined,
+                providerId,
                 taskName
             );
 
@@ -140,7 +168,8 @@ export abstract class ChatExecutor {
                 if (chunk.thinking || chunk.content) {
                     if (currentTask && currentTask.state === TaskState.IDLE) {
                         currentTask.transition(TaskState.THINKING);
-                        TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', TaskMonitorStatus.THINKING, client.isCloudProvider(), undefined, taskName);
+                        const activeProviderId = providerId || client.getProviderId();
+                        TaskMonitor.getInstance(this.context).updateStatus(activeProviderId, assistantMessage.providerName || 'AI', TaskMonitorStatus.THINKING, client.isCloudProvider(), undefined, taskName);
                         state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
                     }
                 }
@@ -166,8 +195,9 @@ export abstract class ChatExecutor {
                         const hasExecute = newOps.some(op => op.action === 'execute');
 
                         // [2026-03-26] Non-blocking Execution - Launch batch without await
+                        const activeProviderIdForBatch = providerId || client.getProviderId();
                         const batchPromise = this.processOperationsBatch(
-                            state, client, newOps as any, providerId, assistantMessage.providerName || 'AI',
+                            state, client, newOps as any, activeProviderIdForBatch, assistantMessage.providerName || 'AI',
                             taskName, currentTask, turnCts, globalCts
                         ).then(batchResults => {
                             // [2026-03-28] Store results precisely into the newly closed blocks
@@ -197,6 +227,11 @@ export abstract class ChatExecutor {
             assistantMessage.isStreaming = false;
             assistantMessage.isThinking = false;
 
+            // [2026-03-29] [Workflow-Resume] - Set isTaskDone before tag replacement to ensure logic can resume
+            if (assistantMessage.content.includes('[@@DONE@@]') || assistantMessage.content.includes('[DONE]')) {
+                assistantMessage.isTaskDone = true;
+            }
+
             // [2026-03-25] Narrative Step Completion Signal - Replace [@@DONE@@] with narrative text for history coherence.
             if (assistantMessage.content.includes('[@@DONE@@]')) {
                 assistantMessage.content = assistantMessage.content.replace('[@@DONE@@]', `(${taskName || 'AI'})已完成任務`);
@@ -214,8 +249,9 @@ export abstract class ChatExecutor {
                 allResultsCount += finalOps.length;
                 if (currentTask && currentTask.state !== TaskState.EXECUTING) currentTask.transition(TaskState.EXECUTING);
 
+                const activeProviderIdForFinal = providerId || client.getProviderId();
                 const finalBatchResults = await this.processOperationsBatch(
-                    state, client, finalOps as any, providerId, assistantMessage.providerName || 'AI',
+                    state, client, finalOps as any, activeProviderIdForFinal, assistantMessage.providerName || 'AI',
                     taskName, currentTask, turnCts, globalCts
                 );
 
@@ -243,21 +279,23 @@ export abstract class ChatExecutor {
                 }
 
                 state.updateWebview();
-                TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', TaskMonitorStatus.REPORTING, client.isCloudProvider(), `正在回報 ${allResultsCount} 個執行結果...`, taskName);
+                const activeProviderIdStatus = providerId || client.getProviderId();
+                TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.REPORTING, client.isCloudProvider(), `正在回報 ${allResultsCount} 個執行結果...`, taskName);
                 state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
 
                 // 延遲一下讓使用者看到 REPORTING 狀態
                 await new Promise(resolve => setTimeout(resolve, 800));
 
-                TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName);
-                TaskMonitor.getInstance(this.context).recordActivity(providerId, 0, Date.now() - streamStartTime);
+                TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName);
+                TaskMonitor.getInstance(this.context).recordActivity(activeProviderIdStatus, 0, Date.now() - streamStartTime);
                 state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
                 return { hasOps: true, content: fullContent };
             }
 
             if (currentTask) currentTask.transition(TaskState.IDLE);
-            TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName);
-            TaskMonitor.getInstance(this.context).recordActivity(providerId, 0, Date.now() - streamStartTime);
+            const finalActiveProviderId = providerId || client.getProviderId();
+            TaskMonitor.getInstance(this.context).updateStatus(finalActiveProviderId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName);
+            TaskMonitor.getInstance(this.context).recordActivity(finalActiveProviderId, 0, Date.now() - streamStartTime);
             state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
             return { hasOps: false, content: fullContent };
 
@@ -288,13 +326,19 @@ export abstract class ChatExecutor {
                 }
             }
             
+            // // [2026-03-29] [Fix-UI-Hang] - Append error to narrative and RE-THROW to break Runner loops
             assistantMessage.content += `\n\n[執行錯誤]: ${errorMsg}`;
             assistantMessage.isThinking = false;
+            assistantMessage.isStreaming = false;
             
             const monitorStatus = isStalled ? TaskMonitorStatus.STALLED : TaskMonitorStatus.ERROR;
-            TaskMonitor.getInstance(this.context).updateStatus(providerId, assistantMessage.providerName || 'AI', monitorStatus, client.isCloudProvider(), errorMsg, taskName);
+            // [2026-03-29] [Fix-Lint] - Ensure activeProviderId is a string for TaskMonitor
+            const activeProviderId = providerId || client.getProviderId();
+            TaskMonitor.getInstance(this.context).updateStatus(activeProviderId, assistantMessage.providerName || 'AI', monitorStatus, client.isCloudProvider(), errorMsg, taskName);
             state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
-            return { hasOps: allResultsCount > 0, content: fullContent };
+            state.updateWebview();
+            
+            throw error; // 核心修正：拋出異常以中斷 Runner 內部的 while 迴圈
         } finally {
             stopSub?.dispose();
             turnCts.dispose();

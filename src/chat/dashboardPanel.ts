@@ -18,6 +18,7 @@ export class DashboardPanel implements vscode.Disposable {
         };
     }
 
+    // // [2026-03-29] Dashboard-Fix - Robust popup and immediate sync
     public async show() {
         if (this.panel) {
             this.panel.reveal(vscode.ViewColumn.Active);
@@ -48,8 +49,17 @@ export class DashboardPanel implements vscode.Disposable {
             this.panel = undefined;
         });
 
-        // Move to new window
-        await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+        // Small delay to ensure panel is fully initialized before move
+        await new Promise(r => setTimeout(r, 100));
+        
+        try {
+            // Move to new window
+            await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+            // [2026-03-28] [FIX_COMPACT_MODE] - Enable compact mode for auxiliary window
+            await vscode.commands.executeCommand('workbench.action.enableCompactAuxiliaryWindow');
+        } catch (e) {
+            console.error('[DashboardPanel] Failed to move window:', e);
+        }
 
         // Sync stats immediately
         this.chatService.sendLLMStats();

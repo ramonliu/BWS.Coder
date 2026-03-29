@@ -27,7 +27,8 @@ export class ChatRunner {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string, 
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[], 
         isGroupChat: boolean,
         globalCts?: vscode.CancellationTokenSource,
@@ -37,10 +38,10 @@ export class ChatRunner {
     ) {
         if (isGroupChat) {
             const runner = new GroupChatRunner(this.context);
-            return runner.run(state, dynamicSystemPrompt, images, globalCts, streamCts, taskPrompt, personas);
+            return runner.run(state, personaPrompt, actionFormatPrompt, images, globalCts, streamCts, taskPrompt, personas);
         } else {
             const runner = new SingleChatRunner(this.context);
-            return runner.run(state, dynamicSystemPrompt, images, globalCts, streamCts, taskPrompt);
+            return runner.run(state, personaPrompt, actionFormatPrompt, images, globalCts, streamCts, taskPrompt);
         }
     }
 
@@ -57,14 +58,15 @@ export class ChatRunner {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string, 
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[], 
         globalCts?: vscode.CancellationTokenSource,
         streamCts?: vscode.CancellationTokenSource,
         taskPrompt?: string
     ) {
         const runner = new ConcurrentChatRunner(this.context);
-        return runner.run(state, dynamicSystemPrompt, images, globalCts, streamCts, taskPrompt);
+        return runner.run(state, personaPrompt, actionFormatPrompt, images, globalCts, streamCts, taskPrompt);
     }
 
     /**
@@ -80,7 +82,8 @@ export class ChatRunner {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string, 
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[], 
         steps: any[], 
         initialText: string,
@@ -88,6 +91,6 @@ export class ChatRunner {
         streamCts?: vscode.CancellationTokenSource
     ) {
         const runner = new WorkflowRunner(this.context);
-        return runner.run(state, dynamicSystemPrompt, images, steps, initialText, globalCts, streamCts);
+        return runner.run(state, personaPrompt, actionFormatPrompt, images, steps, initialText, globalCts, streamCts);
     }
 }

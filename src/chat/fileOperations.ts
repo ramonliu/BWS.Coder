@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getFileOpRegex } from './constants';
+import { getFileOpRegex, getEofRegex, getReplaceOldRegex, getReplaceDivRegex, getReplaceNewRegex } from './constants';
 
 export interface FileOperation {
   action: 'create' | 'write' | 'modify' | 'replace' | 'delete' | 'execute' | 'read';
@@ -92,20 +92,22 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
     let realEndIndex = startIndex;
 
     if (action === 'create' || action === 'write' || action === 'modify' || action === 'replace') {
-        const closeTag = '[@@ eof @@]';
-        let endIndex = response.indexOf(closeTag, startIndex);
+        // [2026-03-30] [Bugfix-TagStripping] - Use regex for EOF to handle malformed or optional brackets
+        const eofRegex = getEofRegex();
+        eofRegex.lastIndex = startIndex;
+        const eofMatch = eofRegex.exec(response);
         
-        if (endIndex === -1) {
+        if (!eofMatch) {
             // [2026-03-25] Bugfix: If still streaming, do NOT parse this block yet
             if (isStreaming) {
                 continue; 
             }
             // Fallback: take the rest if AI forgot closing tag
-            endIndex = response.length;
             realEndIndex = response.length;
+            matchLength = 0;
         } else {
-            realEndIndex = endIndex;
-            matchLength = closeTag.length;
+            realEndIndex = eofMatch.index;
+            matchLength = eofMatch[0].length;
         }
         
         content = response.substring(startIndex, realEndIndex);
@@ -162,10 +164,10 @@ export async function replaceFileContent(filePath: string, patchContent: string)
       cleanPatch = patchContent.replace(lineMatch[0], '').trim();
     }
 
-    // [2026-03-27] [Change Replace Parse] - Switch to [@@<@@], [@@=@@], [@@>@@] syntax
-    const startMatch = cleanPatch.match(/^\[@@<@@\][ \t]*\r?\n/im);
-    const dividerMatch = cleanPatch.match(/^\[@@=@@\][ \t]*\r?\n/im);
-    const endMatch = cleanPatch.match(/^\[@@>@@\][ \t]*\r?\n?/im);
+    // [2026-03-30] [Replace-Refactor] - Use centralized and more robust regex for internal tags
+    const startMatch = cleanPatch.match(getReplaceOldRegex());
+    const dividerMatch = cleanPatch.match(getReplaceDivRegex());
+    const endMatch = cleanPatch.match(getReplaceNewRegex());
 
     if (!startMatch || !dividerMatch || !endMatch) {
       return { success: false, action: 'replace', filePath, error: 'replace 區塊格式錯誤，必須包含獨立的一行 [@@<@@]、[@@=@@] 與 [@@>@@] 標籤' };

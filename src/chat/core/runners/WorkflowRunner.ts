@@ -21,7 +21,8 @@ export class WorkflowRunner extends ChatExecutor {
             broadcast: (msg: any) => void,
             acquireFileLock: (path: string) => Promise<() => void>
         },
-        dynamicSystemPrompt: string,
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[],
         steps: any[],
         initialText: string,
@@ -39,42 +40,77 @@ export class WorkflowRunner extends ChatExecutor {
         
         state.updateWebview();
 
-        let i = 0;
-        while (i < steps.length && !globalCts?.token.isCancellationRequested) {
-            const group = [];
-            let j = i;
-            if (steps[j].parallel) {
-                while (j < steps.length && steps[j].parallel) {
+        // [2026-03-29] [Feature-Resume] - Determine starting step based on history
+        const resumeIndex = this.getResumeIndex(state, steps);
+        if (resumeIndex > 0 && resumeIndex < steps.length) {
+            state.messages.push({
+                id: state.generateId(),
+                role: 'system',
+                content: `[系統通知] 偵測到前 ${resumeIndex} 個步驟已完成，將從步驟「${steps[resumeIndex].role}」開始繼續任務。`,
+                timestamp: new Date()
+            });
+            state.updateWebview();
+        }
+
+        try {
+            let i = resumeIndex;
+            while (i < steps.length && !globalCts?.token.isCancellationRequested) {
+                const group = [];
+                let j = i;
+                if (steps[j].parallel) {
+                    while (j < steps.length && steps[j].parallel) {
+                        group.push(steps[j]);
+                        j++;
+                    }
+                } else {
                     group.push(steps[j]);
                     j++;
                 }
-            } else {
-                group.push(steps[j]);
-                j++;
+
+                // // [2026-03-29] [Fix-UI-Hang] - Ensure state is reset even on API failure
+                await Promise.all(group.map(step => this.runWorkflowStep(state, personaPrompt, actionFormatPrompt, images, step, globalCts, streamCts)));
+                i = j;
             }
-
-            await Promise.all(group.map(step => this.runWorkflowStep(state, dynamicSystemPrompt, images, step, globalCts, streamCts)));
-            i = j;
+        } finally {
+            state.isGenerating = false;
+            state.updateWebview();
         }
+    }
 
-        state.isGenerating = false;
-        state.updateWebview();
+    // [2026-03-29] [Feature-Resume] - Scan history to find the last completed step
+    private getResumeIndex(state: any, steps: any[]): number {
+        const doneRoles = new Set<string>();
+        // [2026-03-29] [Workflow-Resume] - Preferred check via isTaskDone flag, fallback to string matching for backward compatibility
+        state.messages.forEach((m: ChatMessage) => {
+            if (m.role === 'assistant' && m.taskName) {
+                if (m.isTaskDone === true || m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]')) {
+                    doneRoles.add(m.taskName);
+                }
+            }
+        });
+
+        let resumeIndex = 0;
+        while (resumeIndex < steps.length) {
+            const step = steps[resumeIndex];
+            if (doneRoles.has(step.role)) {
+                resumeIndex++;
+            } else {
+                break;
+            }
+        }
+        return resumeIndex;
     }
 
     private async runWorkflowStep(
         state: any,
-        dynamicSystemPrompt: string,
+        personaPrompt: string,
+        actionFormatPrompt: string,
         images: string[],
         step: any,
         globalCts?: vscode.CancellationTokenSource,
         streamCts?: vscode.CancellationTokenSource
     ) {
-        const providerId = step.providerId === 'default' ? state.client.getProviderId() : step.providerId;
-        let currentClient = state.client;
-        if (state.client instanceof MultiLLMClient) {
-            const found = (state.client as MultiLLMClient).getProviderById(providerId);
-            if (found) currentClient = found;
-        }
+        // [2026-03-29] [Fix-Fallback-Logic] - Removed concrete client unwrapping in WorkflowRunner
 
         let turnCount = 0;
         const configLimit = vscode.workspace.getConfiguration('bwsCoder').get<number>('maxTurnsPerStep');
@@ -106,8 +142,8 @@ export class WorkflowRunner extends ChatExecutor {
             MemoryManager.assignWeights(state.messages);
             const prunedMessages = MemoryManager.prune(state.messages);
 
-            // [2026-03-25] Prompt Optimization - Put Task Instruction at the absolute top for better focus
-            const unifiedSystemPrompt = `[CURRENT_STEP: ${step.role}]\nInstruction: ${step.prompt}\n\n${dynamicSystemPrompt}`;
+            // [2026-03-29] [Workflow-ModularPrompt] - Use centralized smart assembly
+            const unifiedSystemPrompt = this.getUnifiedSystemPrompt(personaPrompt, actionFormatPrompt, step.prompt, step.role);
 
             // [2026-03-27] [Fix-Cascading-Done] - Isolate each agent's assistant memory.
             // All agents share state.messages, so without filtering, Agent B would see Agent A's
@@ -131,7 +167,8 @@ export class WorkflowRunner extends ChatExecutor {
                 state.messages
             );
 
-            const result = await this.executeAITurn(state, currentClient, workflowMessages, images, globalCts, streamCts, currentClient.getProviderName(), step.role, task);
+            // [2026-03-29] [Fix-Fallback-Logic] - Pass current step's providerId without unwrapping the client
+            const result = await this.executeAITurn(state, state.client, workflowMessages, images, globalCts, streamCts, step.providerId, state.client.getProviderName(), step.role, task);
 
             // 2. Log full state to DebugDB for audit trail (async)
             const db = DebugDB.getInstance(this.context);

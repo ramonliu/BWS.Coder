@@ -55,7 +55,8 @@ export interface ChatMessage {
   isStreaming?: boolean;
   weight?: number;        // 0.0 to 1.0, reflects message importance
   isPruned?: boolean;      // Whether this message was omitted from the LLM context
-  pruneReason?: string;    // Reason for pruning (e.g., "decay", "low_weight", "token_limit")
+  // [2026-03-29] [Workflow-Resume] - Explicitly track task completion
+  isTaskDone?: boolean;
 }
 
 export interface ChatSession {

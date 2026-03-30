@@ -2,6 +2,25 @@
 
 所有顯著的更動都將記錄在此檔案中。
 
+## [0.1.20] - 全球語系與使用者體驗優化 (Universal Localization & UX Improvements) - 2026-03-31
+
+### ✨ 新增功能 (New Features)
+- **全面語系支援 (Universal Localization)**：擴充功能現在完整支援「繁體中文 (zh-TW)」、「簡體中文 (zh-CN)」與「英文 (en)」。包含所有的 AI 執行狀態、系統訊息、錯誤提示以及 UI 介面。
+- **全新斜槓指令 (New Slash Commands)**：
+  - `/setting`：快速開啟「LLM 參數設定」面板。
+  - `/manage`：快速開啟「AI 提供者與模型管理」面板。
+- **即時語系切換 (Real-time Locale Sync)**：在設定面板更改語系後，聊天面板 (Chat Webview)、狀態列 (Status Bar) 以及管理面板將立即同步更新，無需重新載入視窗。
+
+### 💄 介面優化 (UI/UX Improvements)
+- **狀態列與工具列強化**：
+  - 工具列所有按鈕（Workflow, Group, Single, History, Log 等）現在具備完整的語系化提示 (Tooltips)。
+  - 右下角「AI 助理」狀態按鈕及其工具提示支援即時語系更新。
+- **輸入框指令本地化**：輸入框預設文字（Placeholder）現在會根據語系顯示對應的「按 Shift+Enter 換行, Enter 發送」說明。
+
+### 🧹 系統重構 (System Refactoring)
+- **架構升級**：移除所有舊式的 `package.nls.json` 檔案，將所有語系邏輯集中於 `src/utils/locale.ts` 管理，大幅提升維護性與動態切換效能。
+- **程式碼清理**：掃描並清除了所有 `.ts` 原始碼中的硬編碼中文，改由 `t()` 函數統一分發。
+
 ## [0.1.19] - 標籤解析與穩定性修正 (Tag Parsing & Stability Fixes) - 2026-03-30
 
 ### 🐞 Bug 修復 (Bug Fixes)

@@ -21,6 +21,8 @@ You can enter the following commands directly into the chat box to control AI be
 | `/stop` | Immediately stops AI generation or aborts background terminal commands. |
 | `/export` | Exports the current chat history to HTML, Markdown, Plain Text, or XML. |
 | `/handover` | Generates project handover info to help a new AI session pick up current progress. |
+| `/setting` | Opens the **LLM Configuration** Settings panel immediately. |
+| `/manage` | Opens the **AI Provider & Model Manager** panel immediately. |
 
 ### 🤖 AI Internal Protocol Tags
 BWS.Coder uses a strict regex-based parsing protocol to execute your instructions. The AI uses these tags in its responses:
@@ -56,6 +58,7 @@ BWS.Coder uses a strict regex-based parsing protocol to execute your instruction
 - **Ollama Local Drive**: Protects privacy with pure local execution.
 - **Gemini Cloud Acceleration**: Seamlessly supports the Gemini 1.5 series.
 - **Auto API Polling**: Supports multiple API Keys with intelligent rotation. When one key reaches its rate limit, it switches to the next one automatically.
+- **Universal Localization (New!)**: All components, UI, and AI runner status outputs are fully localized in **English**, **Traditional Chinese**, and **Simplified Chinese** with real-time UI synchronization.
 
 ---
 
@@ -93,9 +96,9 @@ BWS.Coder uses a strict regex-based parsing protocol to execute your instruction
 | `bwsCoder.maxTokens` | Maximum output tokens for the model. | `4096` |
 | `bwsCoder.maxTurnsPerStep` | Safety limit for maximum turns in a single workflow step. | `30` |
 | `bwsCoder.heartbeatTimeout`| Response detection timeout (seconds). | `30` |
-| `bwsCoder.autoFallback` | Automatically switch to backup model if the primary fails. | `false` |
+| `bwsCoder.autoFallback` | Automatically switch to backup model if the primary fails. | `true` |
 | `bwsCoder.debugMode` | Enables state machine logs and detailed troubleshooting info. | `false` |
-| `bwsCoder.language` | Global output language for the AI. | `zh-TW` |
+| `bwsCoder.language` | Output language (zh-TW, zh-CN, en). Updates UI in real-time. | `en` |
 
 ---
 

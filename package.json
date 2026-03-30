@@ -1,7 +1,7 @@
 {
   "name": "bws-coder",
-  "displayName": "BWS.Coder - AI程式工程師",
-  "description": "AI-powered development assistant using Ollama local models",
+  "displayName": "%bwsCoder.displayName%",
+  "description": "%bwsCoder.description%",
   "version": "0.1.19",
   "repository": {
     "type": "git",
@@ -44,7 +44,7 @@
         {
           "type": "webview",
           "id": "bwsCoder.chatView",
-          "name": "AI 助理聊天",
+          "name": "%bwsCoder.view.chat.title%",
           "icon": "media/icon.png",
           "contextualTitle": "BWS.Coder"
         }
@@ -59,7 +59,7 @@
       },
       {
         "command": "bwsCoder.chat",
-        "title": "開啟 AI 聊天 (側邊欄)",
+        "title": "%bwsCoder.command.chat%",
         "category": "BWS.Coder",
         "icon": {
           "light": "media/icon.png",
@@ -68,7 +68,7 @@
       },
       {
         "command": "bwsCoder.openChatPanel",
-        "title": "開啟 AI 聊天 (全螢幕)",
+        "title": "%bwsCoder.command.openChatPanel%",
         "category": "BWS.Coder",
         "icon": {
           "light": "media/icon.png",
@@ -77,22 +77,22 @@
       },
       {
         "command": "bwsCoder.selectModel",
-        "title": "BWS.Coder: 選擇 AI 模型",
+        "title": "%bwsCoder.command.selectModel%",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.configure",
-        "title": "BWS.Coder: 設定 LLM 參數",
+        "title": "%bwsCoder.command.configure%",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.popOutDashboard",
-        "title": "開啟 Task 監控 Dashbord",
+        "title": "%bwsCoder.command.popOutDashboard%",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.manageProviders",
-        "title": "管理 AI 提供者與模型",
+        "title": "%bwsCoder.command.manageProviders%",
         "category": "BWS.Coder"
       }
     ],
@@ -118,13 +118,13 @@
         "bwsCoder.temperature": {
           "type": "number",
           "default": 0.3,
-          "description": "生成溫度 (0-1，越低越精確)",
+          "description": "%bwsCoder.config.temperature.description%",
           "order": 1
         },
         "bwsCoder.maxTokens": {
           "type": "number",
           "default": 4096,
-          "description": "最大輸出 token 數",
+          "description": "%bwsCoder.config.maxTokens.description%",
           "order": 2
         },
         "bwsCoder.language": {
@@ -135,49 +135,49 @@
             "zh-CN",
             "en"
           ],
-          "description": "輸出語言",
+          "description": "%bwsCoder.config.language.description%",
           "order": 6
         },
         "bwsCoder.debugMode": {
           "type": "boolean",
           "default": false,
-          "description": "除錯模式：開啟後將在界面顯示狀態機進度與詳細日誌。",
+          "description": "%bwsCoder.config.debugMode.description%",
           "order": 10
         },
         "bwsCoder.saveRawStream": {
           "type": "boolean",
           "default": false,
-          "description": "儲存原始串流：開啟後將儲存來自 AI 的原始數據串流內容 (Raw Stream Data) 至 Log 目錄。",
+          "description": "%bwsCoder.config.saveRawStream.description%",
           "order": 10.1
         },
         "bwsCoder.saveAiRequest": {
           "type": "boolean",
           "default": false,
-          "description": "儲存 AI 請求：開啟後將發送給 AI 的完整請求對象 (Request Payload) 儲存至 Log 目錄。",
+          "description": "%bwsCoder.config.saveAiRequest.description%",
           "order": 10.2
         },
         "bwsCoder.groupChatMaxRounds": {
           "type": "number",
           "default": 0,
-          "description": "群組聊天最大對話輪數限制 (0 表示不限制)",
+          "description": "%bwsCoder.config.groupChatMaxRounds.description%",
           "order": 11
         },
         "bwsCoder.maxTurnsPerStep": {
           "type": "number",
           "default": 30,
-          "description": "工作流每個步驟的最大對話輪數 (防止無限迴圈)。設定為 0 表示不限制，但建議保留安全值。",
+          "description": "%bwsCoder.config.maxTurnsPerStep.description%",
           "order": 11.1
         },
         "bwsCoder.heartbeatTimeout": {
           "type": "number",
           "default": 30,
-          "description": "AI 回應偵測逾時 (秒)。Local LLM 會自動乘以 10 倍 (即 300 秒)。",
+          "description": "%bwsCoder.config.heartbeatTimeout.description%",
           "order": 12
         },
         "bwsCoder.autoFallback": {
           "type": "boolean",
           "default": false,
-          "description": "當主要 LLM 失敗時，是否自動切換至備援 LLM。建議在工作流中關閉，以確保任務準確性。",
+          "description": "%bwsCoder.config.autoFallback.description%",
           "order": 13
         }
       }

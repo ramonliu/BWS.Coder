@@ -38,6 +38,15 @@ export type LocaleStrings = {
     ui_poppedOutMessage: string;
     ui_poppedOutHint: string;
     ui_returnToSidebar: string;
+    ui_statusBarAi: string;
+    ui_workflowTitle: string;
+    ui_groupTitle: string;
+    ui_singleTitle: string;
+    ui_historyTooltip: string;
+    ui_newChatTooltip: string;
+    ui_handoverTooltip: string;
+    ui_logTooltip: string;
+    ui_input_instruction: string;
 
     // Messages
     msg_you: string;
@@ -117,6 +126,59 @@ export type LocaleStrings = {
     cmd_output: string;
     cmd_noOutput: string;
     op_failed: string;
+
+    // [2026-03-30] Full Localization - Provider Manager UI strings
+    pm_title: string;
+    pm_sidebarHeader: string;
+    pm_formTitleAdd: string;
+    pm_formTitleEdit: string;
+    pm_labelName: string;
+    pm_labelModel: string;
+    pm_labelEndpoint: string;
+    pm_labelApiKeys: string;
+    pm_btnResetCD: string;
+    pm_btnSubmitAdd: string;
+    pm_btnSubmitSave: string;
+    pm_btnAddKey: string;
+    pm_btnCancel: string;
+    pm_placeholderName: string;
+    pm_placeholderModel: string;
+    pm_placeholderEndpoint: string;
+    pm_placeholderApiKey: string;
+    pm_emptyHint: string;
+    pm_confirmDelete: string;
+    pm_btnConfirmDelete: string;
+    pm_msgAdded: string;
+    pm_msgUpdated: string;
+    pm_msgDeleted: string;
+    pm_msgResetCD: string;
+    pm_errorRequired: string;
+
+    // [2026-03-30] Full Localization - Settings Panel strings
+    set_title: string;
+    set_temperature: string;
+    set_temperature_desc: string;
+    set_maxTokens: string;
+    set_maxTokens_desc: string;
+    set_language: string;
+    set_language_desc: string;
+    set_debugMode: string;
+    set_debugMode_desc: string;
+    set_saveRawStream: string;
+    set_saveRawStream_desc: string;
+    set_saveAiRequest: string;
+    set_saveAiRequest_desc: string;
+    set_groupChatMaxRounds: string;
+    set_groupChatMaxRounds_desc: string;
+    set_maxTurnsPerStep: string;
+    set_maxTurnsPerStep_desc: string;
+    set_heartbeatTimeout: string;
+    set_heartbeatTimeout_desc: string;
+    set_autoFallback: string;
+    set_autoFallback_desc: string;
+    set_btnSave: string;
+    set_btnReset: string;
+    set_msgSaved: string;
 };
 
 const locales: Record<SupportedLang, LocaleStrings> = {
@@ -155,6 +217,15 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_poppedOutMessage: '對話已在獨立視窗開啟',
         ui_poppedOutHint: '(關閉獨立視窗即可恢復此處)',
         ui_returnToSidebar: '收回至側邊欄',
+        ui_statusBarAi: 'AI助理',
+        ui_workflowTitle: '任務編排 (Workflow)',
+        ui_groupTitle: '廣播模式 (Group)',
+        ui_singleTitle: '單一模式 (Single)',
+        ui_historyTooltip: '歷史紀錄',
+        ui_newChatTooltip: '開始新會話',
+        ui_handoverTooltip: '儲存交接文件 (Handover)',
+        ui_logTooltip: '查看 AI 原始日誌',
+        ui_input_instruction: '按 Shift+Enter 換行, Enter 發送',
 
         msg_you: '你',
         msg_aiEngineer: 'AI 程式工程師',
@@ -227,7 +298,60 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_executeFailed: '指令 `{0}` 執行失敗',
         cmd_output: '輸出內容：\n{0}\n',
         cmd_noOutput: '(無輸出)',
-        op_failed: '❌ 操作 {0} 失敗：{1}'
+        op_failed: '❌ 操作 {0} 失敗：{1}',
+
+        // [2026-03-30] Full Localization - Provider Manager (zh-TW)
+        pm_title: 'BWS.Coder - LLM 提供者管理',
+        pm_sidebarHeader: '已設定的提供者',
+        pm_formTitleAdd: '新增 LLM',
+        pm_formTitleEdit: '修改設定: {0}',
+        pm_labelName: '服務名稱',
+        pm_labelModel: '模型名稱 (Model)',
+        pm_labelEndpoint: '連接端點 (EndPoint)',
+        pm_labelApiKeys: 'API Keys',
+        pm_btnResetCD: '🔄 全部重置 CD',
+        pm_btnSubmitAdd: '新增 LLM',
+        pm_btnSubmitSave: '儲存修改',
+        pm_btnAddKey: '+ 新增金鑰',
+        pm_btnCancel: '取消編輯',
+        pm_placeholderName: '例如: 我的自定義模型',
+        pm_placeholderModel: '例如: gpt-4',
+        pm_placeholderEndpoint: '例如: http://localhost:11434',
+        pm_placeholderApiKey: '輸入 API Key',
+        pm_emptyHint: '尚未新增任何提供者',
+        pm_confirmDelete: '確定要刪除「{0}」嗎？',
+        pm_btnConfirmDelete: '確定刪除',
+        pm_msgAdded: '✅ 已新增提供者: {0}',
+        pm_msgUpdated: '✅ 已更新提供者: {0}',
+        pm_msgDeleted: '🗑️ 已刪除提供者: {0}',
+        pm_msgResetCD: '🔄 已重置該提供者所有金鑰的冷卻狀態。',
+        pm_errorRequired: '請填寫名稱與模型',
+
+        // [2026-03-30] Full Localization - Settings (zh-TW)
+        set_title: 'BWS.Coder 全域設定',
+        set_temperature: '生成溫度 (Temperature)',
+        set_temperature_desc: '0-1，越低越精確',
+        set_maxTokens: '最大 Token 數量',
+        set_maxTokens_desc: '單次輸出的最大數量',
+        set_language: '介面與回應語言 (Language)',
+        set_language_desc: '影響 Chat 介面與回應預設語言',
+        set_debugMode: '開啟除錯模式',
+        set_debugMode_desc: '顯示狀態機進度與詳細日誌',
+        set_saveRawStream: '儲存原始串流資料 (Raw Stream)',
+        set_saveRawStream_desc: '將 AI 原始數據存至 Log 目錄',
+        set_saveAiRequest: '儲存發送給 AI 的完整請求 (Request Payload)',
+        set_saveAiRequest_desc: '將請求內容存至 Log 目錄',
+        set_groupChatMaxRounds: '群組聊天最大對話輪數',
+        set_groupChatMaxRounds_desc: '0 表示不限制',
+        set_maxTurnsPerStep: '工作流單一步驟最大輪數',
+        set_maxTurnsPerStep_desc: '防止無限迴圈，建議保留安全值',
+        set_heartbeatTimeout: 'AI 回應偵測逾時 (秒)',
+        set_heartbeatTimeout_desc: 'Local 模型會自動乘以 10 倍',
+        set_autoFallback: '自動切換備援 LLM',
+        set_autoFallback_desc: '主要 LLM 失敗時自動切換',
+        set_btnSave: '儲存設定',
+        set_btnReset: '重置為預設',
+        set_msgSaved: '✅ 設定已儲存'
     },
     'zh-CN': {
         planningAutoInitTitle: '[规划系统] 🗂️ 已自动初始化项目核心规划文件',
@@ -264,6 +388,15 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_poppedOutMessage: '对话已在独立窗口打开',
         ui_poppedOutHint: '(关闭独立窗口即可恢复此处)',
         ui_returnToSidebar: '收回至侧边栏',
+        ui_statusBarAi: 'AI助理',
+        ui_workflowTitle: '任务编排 (Workflow)',
+        ui_groupTitle: '广播模式 (Group)',
+        ui_singleTitle: '单一模式 (Single)',
+        ui_historyTooltip: '历史记录',
+        ui_newChatTooltip: '开始新会话',
+        ui_handoverTooltip: '储存交接文档 (Handover)',
+        ui_logTooltip: '查看 AI 原始日志',
+        ui_input_instruction: '按 Shift+Enter 换行, Enter 发送',
 
         msg_you: '你',
         msg_aiEngineer: 'AI 程序员',
@@ -336,7 +469,60 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_executeFailed: '指令 `{0}` 执行失败',
         cmd_output: '输出内容：\n{0}\n',
         cmd_noOutput: '(无输出)',
-        op_failed: '❌ 操作 {0} 失败：{1}'
+        op_failed: '❌ 操作 {0} 失败：{1}',
+
+        // [2026-03-30] Full Localization - Provider Manager (zh-CN)
+        pm_title: 'BWS.Coder - LLM 提供者管理',
+        pm_sidebarHeader: '已设置的提供者',
+        pm_formTitleAdd: '新增 LLM',
+        pm_formTitleEdit: '修改设置: {0}',
+        pm_labelName: '服务名称',
+        pm_labelModel: '模型名称 (Model)',
+        pm_labelEndpoint: '连接端点 (EndPoint)',
+        pm_labelApiKeys: 'API Keys',
+        pm_btnResetCD: '🔄 全部重置 CD',
+        pm_btnSubmitAdd: '新增 LLM',
+        pm_btnSubmitSave: '保存修改',
+        pm_btnAddKey: '+ 新增密钥',
+        pm_btnCancel: '取消编辑',
+        pm_placeholderName: '例如: 我的自定义模型',
+        pm_placeholderModel: '例如: gpt-4',
+        pm_placeholderEndpoint: '例如: http://localhost:11434',
+        pm_placeholderApiKey: '输入 API Key',
+        pm_emptyHint: '尚未新增任何提供者',
+        pm_confirmDelete: '确定要删除“{0}”吗？',
+        pm_btnConfirmDelete: '确定删除',
+        pm_msgAdded: '✅ 已新增提供者: {0}',
+        pm_msgUpdated: '✅ 已更新提供者: {0}',
+        pm_msgDeleted: '🗑️ 已删除提供者: {0}',
+        pm_msgResetCD: '🔄 已重置该提供者所有密钥的冷却状态。',
+        pm_errorRequired: '请填写名称与模型',
+
+        // [2026-03-30] Full Localization - Settings (zh-CN)
+        set_title: 'BWS.Coder 全局设置',
+        set_temperature: '生成温度 (Temperature)',
+        set_temperature_desc: '0-1，越低越精确',
+        set_maxTokens: '最大 Token 数量',
+        set_maxTokens_desc: '单次输出的最大数量',
+        set_language: '界面与响应语言 (Language)',
+        set_language_desc: '影响 Chat 界面与响应默认语言',
+        set_debugMode: '开启除错模式',
+        set_debugMode_desc: '显示状态机进度与详细日志',
+        set_saveRawStream: '储存原始串流资料 (Raw Stream)',
+        set_saveRawStream_desc: '将 AI 原始数据存至 Log 目录',
+        set_saveAiRequest: '储存发送给 AI 的完整请求 (Request Payload)',
+        set_saveAiRequest_desc: '将请求内容存至 Log 目录',
+        set_groupChatMaxRounds: '群组聊天最大对话轮数',
+        set_groupChatMaxRounds_desc: '0 表示不限制',
+        set_maxTurnsPerStep: '工作流单一步骤最大轮数',
+        set_maxTurnsPerStep_desc: '防止无限循环，建议保留安全值',
+        set_heartbeatTimeout: 'AI 回应侦测逾时 (秒)',
+        set_heartbeatTimeout_desc: 'Local 模型会自动乘以 10 倍',
+        set_autoFallback: '自动切换备援 LLM',
+        set_autoFallback_desc: '主要 LLM 失败时自动切换',
+        set_btnSave: '储存设置',
+        set_btnReset: '重置为默认',
+        set_msgSaved: '✅ 设置已储存'
     },
     'en': {
         planningAutoInitTitle: '[Planning System] 🗂️ Project planning files initialized',
@@ -373,6 +559,15 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_poppedOutMessage: 'Conversation opened in standalone window',
         ui_poppedOutHint: '(Close standalone window to restore here)',
         ui_returnToSidebar: 'Return to sidebar',
+        ui_statusBarAi: 'AI Assistant',
+        ui_workflowTitle: 'Workflow Mode',
+        ui_groupTitle: 'Group Mode',
+        ui_singleTitle: 'Single Mode',
+        ui_historyTooltip: 'History',
+        ui_newChatTooltip: 'New Session',
+        ui_handoverTooltip: 'Save Handover',
+        ui_logTooltip: 'View AI Logs',
+        ui_input_instruction: 'Shift+Enter for newline, Enter to send',
 
         msg_you: 'You',
         msg_aiEngineer: 'AI Engineer',
@@ -445,7 +640,60 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_executeFailed: 'Command `{0}` failed',
         cmd_output: 'Output:\n{0}\n',
         cmd_noOutput: '(No output)',
-        op_failed: '❌ Operation {0} failed: {1}'
+        op_failed: '❌ Operation {0} failed: {1}',
+
+        // [2026-03-30] Full Localization - Provider Manager (en)
+        pm_title: 'BWS.Coder - LLM Provider Management',
+        pm_sidebarHeader: 'Configured Providers',
+        pm_formTitleAdd: 'Add LLM',
+        pm_formTitleEdit: 'Edit Config: {0}',
+        pm_labelName: 'Service Name',
+        pm_labelModel: 'Model Name',
+        pm_labelEndpoint: 'Connection Endpoint',
+        pm_labelApiKeys: 'API Keys',
+        pm_btnResetCD: '🔄 Reset All CD',
+        pm_btnSubmitAdd: 'Add LLM',
+        pm_btnSubmitSave: 'Save Changes',
+        pm_btnAddKey: '+ Add Key',
+        pm_btnCancel: 'Cancel Edit',
+        pm_placeholderName: 'e.g., My Custom Model',
+        pm_placeholderModel: 'e.g., gpt-4',
+        pm_placeholderEndpoint: 'e.g., http://localhost:11434',
+        pm_placeholderApiKey: 'Enter API Key',
+        pm_emptyHint: 'No providers added yet',
+        pm_confirmDelete: 'Are you sure you want to delete "{0}"?',
+        pm_btnConfirmDelete: 'Confirm Delete',
+        pm_msgAdded: '✅ Added provider: {0}',
+        pm_msgUpdated: '✅ Updated provider: {0}',
+        pm_msgDeleted: '🗑️ Deleted provider: {0}',
+        pm_msgResetCD: '🔄 Reset all CD states for this provider.',
+        pm_errorRequired: 'Please fill name and model',
+
+        // [2026-03-30] Full Localization - Settings (en)
+        set_title: 'BWS.Coder Global Settings',
+        set_temperature: 'Generation Temperature',
+        set_temperature_desc: '0-1, lower is more precise',
+        set_maxTokens: 'Max Output Tokens',
+        set_maxTokens_desc: 'Max tokens per single output',
+        set_language: 'Display & Response Language',
+        set_language_desc: 'Affects Chat UI and default response language',
+        set_debugMode: 'Enable Debug Mode',
+        set_debugMode_desc: 'Show state machine progress and detailed logs',
+        set_saveRawStream: 'Save Raw Stream Data',
+        set_saveRawStream_desc: 'Saves raw AI data to Log directory',
+        set_saveAiRequest: 'Save AI Request Payload',
+        set_saveAiRequest_desc: 'Saves full request object to Log directory',
+        set_groupChatMaxRounds: 'Max Rounds in Group Chat',
+        set_groupChatMaxRounds_desc: '0 means no limit',
+        set_maxTurnsPerStep: 'Max Turns Per Workflow Step',
+        set_maxTurnsPerStep_desc: 'Prevents infinite loops, keep a safety value',
+        set_heartbeatTimeout: 'AI Response Timeout (sec)',
+        set_heartbeatTimeout_desc: 'Automatically multiplied by 10 for Local LLMs',
+        set_autoFallback: 'Auto Fallback to Backup LLM',
+        set_autoFallback_desc: 'Switch when primary LLM fails',
+        set_btnSave: 'Save Settings',
+        set_btnReset: 'Reset to Defaults',
+        set_msgSaved: '✅ Settings saved successfully'
     }
 };
 

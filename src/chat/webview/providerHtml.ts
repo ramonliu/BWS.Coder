@@ -1,5 +1,5 @@
 export class ProviderHtml {
-    public static getHtml(): string {
+    public static getHtml(i18n: any): string {
         return `<!DOCTYPE html>
 <html>
 <head>
@@ -50,33 +50,44 @@ export class ProviderHtml {
 <body>
     <div class="app-container">
         <div class="sidebar">
-            <div class="sidebar-header">已設定的提供者</div>
+            <div class="sidebar-header" id="sidebarHeader">${i18n.pm_sidebarHeader}</div>
             <div id="providerList" class="provider-list"></div>
         </div>
         <div class="main-content">
-            <div id="formTitle" class="form-title">新增 LLM</div>
-            <div class="form-group"><label>服務名稱</label><input type="text" id="name" placeholder="例如: 我的自定義模型"></div>
+            <div id="formTitle" class="form-title">${i18n.pm_formTitleAdd}</div>
+            <div class="form-group">
+                <label id="lbl_name">${i18n.pm_labelName}</label>
+                <input type="text" id="name" placeholder="${i18n.pm_placeholderName}">
+            </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px">
-                <div class="form-group"><label>模型名稱 (Model)</label><input type="text" id="model" placeholder="例如: gpt-4"></div>
-                <div class="form-group"><label>連接端點 (EndPoint)</label><input type="text" id="endpoint" placeholder="例如: http://localhost:11434"></div>
+                <div class="form-group">
+                    <label id="lbl_model">${i18n.pm_labelModel}</label>
+                    <input type="text" id="model" placeholder="${i18n.pm_placeholderModel}">
+                </div>
+                <div class="form-group">
+                    <label id="lbl_endpoint">${i18n.pm_labelEndpoint}</label>
+                    <input type="text" id="endpoint" placeholder="${i18n.pm_placeholderEndpoint}">
+                </div>
             </div>
             <div class="form-group">
                 <label style="display:flex; align-items:center; gap:8px;">
-                    API Keys
-                    <span class="btn btn-mini btn-secondary" onclick="resetAllKeys()" style="cursor:pointer; font-weight:normal; opacity:0.8; height:18px; padding:2px 6px; font-size:11px;">🔄 全部重置 CD</span>
+                    <span id="lbl_apiKeys">${i18n.pm_labelApiKeys}</span>
+                    <span id="btnResetCD" class="btn btn-mini btn-secondary" onclick="resetAllKeys()" style="cursor:pointer; font-weight:normal; opacity:0.8; height:18px; padding:2px 6px; font-size:11px;">${i18n.pm_btnResetCD}</span>
                 </label>
                 <div id="keyList" class="key-list"></div>
             </div>
             <div style="margin-top:auto; padding-top:20px; display:flex; gap:12px; align-items:center; border-top: 1px solid var(--vscode-widget-border);">
-                <button class="btn btn-primary" onclick="submitForm()" id="submitBtn">新增 LLM</button>
-                <button class="btn btn-secondary" onclick="addKeyField()">+ 新增金鑰</button>
-                <button class="btn btn-secondary" style="display:none" id="cancelBtn" onclick="resetForm()">取消編輯</button>
+                <button class="btn btn-primary" onclick="submitForm()" id="submitBtn">${i18n.pm_btnSubmitAdd}</button>
+                <button class="btn btn-secondary" onclick="addKeyField()" id="btnAddKey">${i18n.pm_btnAddKey}</button>
+                <button class="btn btn-secondary" style="display:none" id="cancelBtn" onclick="resetForm()">${i18n.pm_btnCancel}</button>
             </div>
         </div>
     </div>
 
     <script>
         const vscode = acquireVsCodeApi();
+        // [2026-03-30] Full Localization - Inject i18n bundle
+        let i18n = ${JSON.stringify(i18n)};
         let currentProviders = [];
         let currentExhaustedKeys = {};
         let editingId = null;
@@ -98,8 +109,44 @@ export class ProviderHtml {
                         input.classList.remove('exhausted');
                     }
                 });
+            } else if (event.data.command === 'updateLocale') {
+                // [2026-03-30] Full Localization - Immediate UI Update
+                i18n = event.data.i18n;
+                applyLocale();
             }
         });
+
+        // [2026-03-30] Full Localization - Apply new strings to the DOM without reload
+        function applyLocale() {
+            document.getElementById('sidebarHeader').textContent = i18n.pm_sidebarHeader;
+            document.getElementById('lbl_name').textContent = i18n.pm_labelName;
+            document.getElementById('name').placeholder = i18n.pm_placeholderName;
+            document.getElementById('lbl_model').textContent = i18n.pm_labelModel;
+            document.getElementById('model').placeholder = i18n.pm_placeholderModel;
+            document.getElementById('lbl_endpoint').textContent = i18n.pm_labelEndpoint;
+            document.getElementById('endpoint').placeholder = i18n.pm_placeholderEndpoint;
+            document.getElementById('lbl_apiKeys').textContent = i18n.pm_labelApiKeys;
+            document.getElementById('btnResetCD').textContent = i18n.pm_btnResetCD;
+            document.getElementById('btnAddKey').textContent = i18n.pm_btnAddKey;
+            document.getElementById('cancelBtn').textContent = i18n.pm_btnCancel;
+            
+            // Update key input placeholders
+            document.querySelectorAll('#keyList input').forEach(input => {
+                input.placeholder = i18n.pm_placeholderApiKey;
+            });
+
+            // Update main form title and submit button
+            if (editingId) {
+                const p = currentProviders.find(x => x.id === editingId);
+                document.getElementById('formTitle').textContent = i18n.pm_formTitleEdit.replace('{0}', p?.name || '');
+                document.getElementById('submitBtn').textContent = i18n.pm_btnSubmitSave;
+            } else {
+                document.getElementById('formTitle').textContent = i18n.pm_formTitleAdd;
+                document.getElementById('submitBtn').textContent = i18n.pm_btnSubmitAdd;
+            }
+            
+            renderProviders(currentProviders);
+        }
 
         function addKeyField(val = '', isExhausted = false) {
             const list = document.getElementById('keyList');
@@ -108,7 +155,7 @@ export class ProviderHtml {
             div.className = 'key-item';
             div.id = 'container_' + id;
             const extraClass = isExhausted ? ' exhausted' : '';
-            div.innerHTML = '<input type="text" id="' + id + '" value="' + val.replace(/"/g, '&quot;') + '" class="key-input' + extraClass + '" placeholder="輸入 API Key">' +
+            div.innerHTML = '<input type="text" id="' + id + '" value="' + val.replace(/"/g, '&quot;') + '" class="key-input' + extraClass + '" placeholder="' + i18n.pm_placeholderApiKey + '">' +
                             '<span class="btn-delete-key" onclick="removeKeyField(&apos;' + id + '&apos;)">✕</span>';
             list.appendChild(div);
             div.querySelector('input').focus();
@@ -137,7 +184,7 @@ export class ProviderHtml {
             const list = document.getElementById('providerList');
             if (!list) return;
             if (!providers || providers.length === 0) {
-                list.innerHTML = '<div class="empty-hint">尚未新增任何提供者</div>';
+                list.innerHTML = '<div class="empty-hint">' + i18n.pm_emptyHint + '</div>';
                 return;
             }
             list.innerHTML = '';
@@ -146,7 +193,7 @@ export class ProviderHtml {
                 card.className = 'provider-card' + (editingId === p.id ? ' active' : '');
                 const isChecked = p.enabled ? 'checked' : '';
                 card.innerHTML = '<div class="card-top">' +
-                                 '<div class="card-name">' + (p.name || '未命名') + '</div>' +
+                                 '<div class="card-name">' + (p.name || '???') + '</div>' +
                                  '<label class="switch"><input type="checkbox" ' + isChecked + '><span class="slider"></span></label>' +
                                  '</div>' +
                                  '<div class="card-details">Model: ' + (p.model || '-') + '</div>' +
@@ -178,7 +225,7 @@ export class ProviderHtml {
             document.querySelectorAll('#keyList input').forEach(input => {
                 if (input.value.trim()) apiKeys.push(input.value.trim());
             });
-            if (!name || !model) { alert('請填寫名稱與模型'); return; }
+            if (!name || !model) { alert(i18n.pm_errorRequired); return; }
 
             const providerData = {
                 id: editingId,
@@ -193,8 +240,8 @@ export class ProviderHtml {
             const p = currentProviders.find(x => x.id === id);
             if (!p) return;
             editingId = id;
-            document.getElementById('formTitle').textContent = '修改設定: ' + p.name;
-            document.getElementById('submitBtn').textContent = '儲存修改';
+            document.getElementById('formTitle').textContent = i18n.pm_formTitleEdit.replace('{0}', p.name);
+            document.getElementById('submitBtn').textContent = i18n.pm_btnSubmitSave;
             document.getElementById('cancelBtn').style.display = 'inline-block';
             document.getElementById('name').value = p.name;
             document.getElementById('model').value = p.model;
@@ -213,8 +260,8 @@ export class ProviderHtml {
 
         function resetForm() {
             editingId = null;
-            document.getElementById('formTitle').textContent = '新增 LLM';
-            document.getElementById('submitBtn').textContent = '新增 LLM';
+            document.getElementById('formTitle').textContent = i18n.pm_formTitleAdd;
+            document.getElementById('submitBtn').textContent = i18n.pm_btnSubmitAdd;
             document.getElementById('cancelBtn').style.display = 'none';
             document.getElementById('name').value = '';
             document.getElementById('model').value = '';

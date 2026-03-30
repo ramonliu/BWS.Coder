@@ -197,6 +197,12 @@ export class ChatMessageHandler {
             actualTextToRun = PlanningHandler.getHandoverPrompt(workspacePath);
         }
 
+        // [2026-03-30] Feature - Add /setting slash command to open settings panel
+        if (trimmedText === '/setting' || trimmedText === '/settings') {
+            vscode.commands.executeCommand('bwsCoder.configure');
+            return;
+        }
+
         // [2026-03-24] Bugfix: Update the backend's currentChatMode BEFORE we start broadcasting events.
         // If we don't, updateWebview() will broadcast the old default mode ("Single") while streaming is starting/running,
         // causing the frontend UI toggle to jump back and forth.

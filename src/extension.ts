@@ -6,12 +6,14 @@ import { ChatViewProvider } from './chat/chatViewProvider';
 import { ProviderManagerPanel } from './chat/providerManager';
 import { DashboardPanel } from './chat/dashboardPanel';
 import { LogPanel } from './panels/LogPanel';
+import { SettingsManagerPanel } from './chat/settingsManager';
 
 let client: ILLMClient;
 let chatPanel: ChatPanel;
 let chatViewProvider: ChatViewProvider;
 let providerManager: ProviderManagerPanel;
 let dashboardPanel: DashboardPanel;
+let settingsManager: SettingsManagerPanel;
 let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -30,8 +32,9 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }
   
-  // 建立 Provider Manager 實例
+  // 建立 Provider Manager 與 Settings Panel 實例
   providerManager = new ProviderManagerPanel(context);
+  settingsManager = new SettingsManagerPanel(context);
 
   // 註冊刷新指令 (供 ProviderManagerPanel 調用)
   context.subscriptions.push(
@@ -48,6 +51,12 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration('bwsCoder')) {
         client = LLMFactory.getClient(context);
         updateStatusBar(statusBarItem, context);
+        
+        // [2026-03-30] Full Localization - Refresh Manager panels locale if language changed
+        if (e.affectsConfiguration('bwsCoder.language')) {
+          providerManager.refreshLocale();
+          settingsManager.refreshLocale();
+        }
       }
     })
   );
@@ -76,8 +85,11 @@ export async function activate(context: vscode.ExtensionContext) {
         dashboardPanel = new DashboardPanel(context, chatViewProvider.chatService);
       }
       dashboardPanel.show();
+    }),
+    vscode.commands.registerCommand('bwsCoder.configure', () => {
+      settingsManager.show();
     })
-  );
+);
 
   // 啟動後自動開啟側邊欄 (如果使用者想要取代預設 AI Agent)
   // 使用 setImmediate 確保在其他視圖初始化後再聚焦
@@ -105,7 +117,7 @@ function createStatusBarItem(context: vscode.ExtensionContext): vscode.StatusBar
   );
   
   updateStatusBar(statusBarItem, context);
-  statusBarItem.tooltip = '點擊管理 AI 提供者與模型設定';
+  statusBarItem.tooltip = t(getLang(), 'ui_statusBarAi');
   statusBarItem.command = 'bwsCoder.manageProviders';
   statusBarItem.show();
   
@@ -124,7 +136,7 @@ function updateStatusBar(item: vscode.StatusBarItem, context: vscode.ExtensionCo
     const enabled = providers.filter(p => p.enabled !== false);
     
     if (enabled.length === 0) {
-        item.text = `$(warning) AI 助理 (0)`;
+        item.text = `$(warning) ${t(getLang(), 'ui_statusBarAi')} (0)`;
         item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else if (enabled.length === 1) {
         const p = enabled[0];
@@ -132,7 +144,7 @@ function updateStatusBar(item: vscode.StatusBarItem, context: vscode.ExtensionCo
         item.text = `${isGemini ? '$(key)' : '$(hubot)'} ${p.name}`;
         item.backgroundColor = undefined;
     } else {
-        item.text = `$(combine) AI 助理 (${enabled.length})`;
+        item.text = `$(combine) ${t(getLang(), 'ui_statusBarAi')} (${enabled.length})`;
         item.backgroundColor = undefined;
     }
 }

@@ -7,6 +7,7 @@ import { ProviderManagerPanel } from './chat/providerManager';
 import { DashboardPanel } from './chat/dashboardPanel';
 import { LogPanel } from './panels/LogPanel';
 import { SettingsManagerPanel } from './chat/settingsManager';
+import { t, getLang } from './utils/locale';
 
 let client: ILLMClient;
 let chatPanel: ChatPanel;
@@ -17,10 +18,10 @@ let settingsManager: SettingsManagerPanel;
 let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('BWS.Coder 正在啟動...');
+  console.log('BWS.Coder Starting up...');
 
   client = LLMFactory.getClient(context);
-  
+
   // 遷移邏輯：如果 settings.json 有資料且 globalState 為空，搬移到 globalState (不刪除以維持使用者編輯彈性)
   const config = vscode.workspace.getConfiguration('bwsCoder');
   const oldProviders = config.get<any[]>('providers');
@@ -31,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
       // [2026-03-25] [Settings Persistence Fix] - Stop deleting from settings.json to allow manual user management.
     }
   }
-  
+
   // 建立 Provider Manager 與 Settings Panel 實例
   providerManager = new ProviderManagerPanel(context);
   settingsManager = new SettingsManagerPanel(context);
@@ -51,7 +52,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration('bwsCoder')) {
         client = LLMFactory.getClient(context);
         updateStatusBar(statusBarItem, context);
-        
+
         // [2026-03-30] Full Localization - Refresh Manager panels locale if language changed
         if (e.affectsConfiguration('bwsCoder.language')) {
           providerManager.refreshLocale();
@@ -65,7 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
   chatViewProvider = new ChatViewProvider(context);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider, {
-        webviewOptions: { retainContextWhenHidden: true }
+      webviewOptions: { retainContextWhenHidden: true }
     })
   );
 
@@ -89,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('bwsCoder.configure', () => {
       settingsManager.show();
     })
-);
+  );
 
   // 啟動後自動開啟側邊欄 (如果使用者想要取代預設 AI Agent)
   // 使用 setImmediate 確保在其他視圖初始化後再聚焦
@@ -115,38 +116,38 @@ function createStatusBarItem(context: vscode.ExtensionContext): vscode.StatusBar
     vscode.StatusBarAlignment.Right,
     100
   );
-  
+
   updateStatusBar(statusBarItem, context);
   statusBarItem.tooltip = t(getLang(), 'ui_statusBarAi');
   statusBarItem.command = 'bwsCoder.manageProviders';
   statusBarItem.show();
-  
+
   context.subscriptions.push(statusBarItem);
-  
+
   return statusBarItem;
 }
 
 function updateStatusBar(item: vscode.StatusBarItem, context: vscode.ExtensionContext) {
-    if (!item) return;
-    
-    // 從 globalState 讀取 (與解決儲存問題一致)
-    const providers = context.globalState.get<any[]>('bwsCoder.providers') || [];
-    
-    // 嚴格過濾已啟用的提供者 (預設啟用的也算)
-    const enabled = providers.filter(p => p.enabled !== false);
-    
-    if (enabled.length === 0) {
-        item.text = `$(warning) ${t(getLang(), 'ui_statusBarAi')} (0)`;
-        item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    } else if (enabled.length === 1) {
-        const p = enabled[0];
-        const isGemini = p.endpoint && p.endpoint.includes('googleapis.com');
-        item.text = `${isGemini ? '$(key)' : '$(hubot)'} ${p.name}`;
-        item.backgroundColor = undefined;
-    } else {
-        item.text = `$(combine) ${t(getLang(), 'ui_statusBarAi')} (${enabled.length})`;
-        item.backgroundColor = undefined;
-    }
+  if (!item) return;
+
+  // 從 globalState 讀取 (與解決儲存問題一致)
+  const providers = context.globalState.get<any[]>('bwsCoder.providers') || [];
+
+  // 嚴格過濾已啟用的提供者 (預設啟用的也算)
+  const enabled = providers.filter(p => p.enabled !== false);
+
+  if (enabled.length === 0) {
+    item.text = `$(warning) ${t(getLang(), 'ui_statusBarAi')} (0)`;
+    item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+  } else if (enabled.length === 1) {
+    const p = enabled[0];
+    const isGemini = p.endpoint && p.endpoint.includes('googleapis.com');
+    item.text = `${isGemini ? '$(key)' : '$(hubot)'} ${p.name}`;
+    item.backgroundColor = undefined;
+  } else {
+    item.text = `$(combine) ${t(getLang(), 'ui_statusBarAi')} (${enabled.length})`;
+    item.backgroundColor = undefined;
+  }
 }
 
 export function deactivate() {

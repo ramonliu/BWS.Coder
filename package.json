@@ -1,7 +1,7 @@
 {
   "name": "bws-coder",
-  "displayName": "%bwsCoder.displayName%",
-  "description": "%bwsCoder.description%",
+  "displayName": "BWS.Coder - AI Code Engineer",
+  "description": "AI-powered development assistant using Ollama local models",
   "version": "0.1.19",
   "repository": {
     "type": "git",
@@ -44,7 +44,7 @@
         {
           "type": "webview",
           "id": "bwsCoder.chatView",
-          "name": "%bwsCoder.view.chat.title%",
+          "name": "AI Assistant Chat",
           "icon": "media/icon.png",
           "contextualTitle": "BWS.Coder"
         }
@@ -59,7 +59,7 @@
       },
       {
         "command": "bwsCoder.chat",
-        "title": "%bwsCoder.command.chat%",
+        "title": "Open AI Chat (Sidebar)",
         "category": "BWS.Coder",
         "icon": {
           "light": "media/icon.png",
@@ -68,7 +68,7 @@
       },
       {
         "command": "bwsCoder.openChatPanel",
-        "title": "%bwsCoder.command.openChatPanel%",
+        "title": "Open AI Chat (Full Screen)",
         "category": "BWS.Coder",
         "icon": {
           "light": "media/icon.png",
@@ -77,22 +77,22 @@
       },
       {
         "command": "bwsCoder.selectModel",
-        "title": "%bwsCoder.command.selectModel%",
+        "title": "BWS.Coder: Select AI Model",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.configure",
-        "title": "%bwsCoder.command.configure%",
+        "title": "BWS.Coder: Configure LLM Parameters",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.popOutDashboard",
-        "title": "%bwsCoder.command.popOutDashboard%",
+        "title": "Open Task Monitoring Dashboard",
         "category": "BWS.Coder"
       },
       {
         "command": "bwsCoder.manageProviders",
-        "title": "%bwsCoder.command.manageProviders%",
+        "title": "Manage AI Providers and Models",
         "category": "BWS.Coder"
       }
     ],
@@ -118,13 +118,13 @@
         "bwsCoder.temperature": {
           "type": "number",
           "default": 0.3,
-          "description": "%bwsCoder.config.temperature.description%",
+          "description": "Generation temperature (0-1, lower is more precise)",
           "order": 1
         },
         "bwsCoder.maxTokens": {
           "type": "number",
           "default": 4096,
-          "description": "%bwsCoder.config.maxTokens.description%",
+          "description": "Maximum output tokens count",
           "order": 2
         },
         "bwsCoder.language": {
@@ -135,49 +135,49 @@
             "zh-CN",
             "en"
           ],
-          "description": "%bwsCoder.config.language.description%",
+          "description": "Output Language",
           "order": 6
         },
         "bwsCoder.debugMode": {
           "type": "boolean",
           "default": false,
-          "description": "%bwsCoder.config.debugMode.description%",
+          "description": "Debug Mode: Shows state machine progress and detailed logs in the UI.",
           "order": 10
         },
         "bwsCoder.saveRawStream": {
           "type": "boolean",
           "default": false,
-          "description": "%bwsCoder.config.saveRawStream.description%",
+          "description": "Save Raw Stream: Saves raw data stream from AI to log directory.",
           "order": 10.1
         },
         "bwsCoder.saveAiRequest": {
           "type": "boolean",
           "default": false,
-          "description": "%bwsCoder.config.saveAiRequest.description%",
+          "description": "Save AI Request: Saves full request payload sent to AI to log directory.",
           "order": 10.2
         },
         "bwsCoder.groupChatMaxRounds": {
           "type": "number",
           "default": 0,
-          "description": "%bwsCoder.config.groupChatMaxRounds.description%",
+          "description": "Group chat maximum conversation rounds (0 for no limit)",
           "order": 11
         },
         "bwsCoder.maxTurnsPerStep": {
           "type": "number",
           "default": 30,
-          "description": "%bwsCoder.config.maxTurnsPerStep.description%",
+          "description": "Maximum conversation rounds per workflow step (prevents infinite loops). 0 for no limit, but safe value recommended.",
           "order": 11.1
         },
         "bwsCoder.heartbeatTimeout": {
           "type": "number",
           "default": 30,
-          "description": "%bwsCoder.config.heartbeatTimeout.description%",
+          "description": "AI response detection timeout (seconds). Local LLM automatically multiplied by 10 (e.g., 300s).",
           "order": 12
         },
         "bwsCoder.autoFallback": {
           "type": "boolean",
           "default": false,
-          "description": "%bwsCoder.config.autoFallback.description%",
+          "description": "Automatically switch to fallback LLM when the primary one fails. Recommended to turn off in workflows for accuracy.",
           "order": 13
         }
       }

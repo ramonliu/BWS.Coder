@@ -60,7 +60,7 @@ export class ChatMessageHandler {
         try {
             const personaPath = path.join(this.context.extensionPath, 'prompts', 'Programer.md');
             const formatPath = path.join(this.context.extensionPath, 'prompts', 'ActionFormat.md');
-            
+
             if (fs.existsSync(personaPath)) personaPrompt = fs.readFileSync(personaPath, 'utf8');
             if (fs.existsSync(formatPath)) actionFormatPrompt = fs.readFileSync(formatPath, 'utf8');
         } catch (err) {
@@ -147,7 +147,7 @@ export class ChatMessageHandler {
                 functionalPrompt += `\n\n[DYN_SKILLS_CONTEXT]\n${skillContents.join('\n\n')}\n`;
             }
         }
-        
+
         // Assemble the display system prompt for components that still need it
         systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + functionalPrompt);
 
@@ -197,8 +197,8 @@ export class ChatMessageHandler {
             actualTextToRun = PlanningHandler.getHandoverPrompt(workspacePath);
         }
 
-        // [2026-03-30] Feature - Add /setting slash command to open settings panel
-        if (trimmedText === '/setting' || trimmedText === '/settings') {
+        // [2026-03-30] Feature - Add /settings slash command to open settings panel
+        if (trimmedText === '/settings') {
             vscode.commands.executeCommand('bwsCoder.configure');
             return;
         }
@@ -287,10 +287,10 @@ export class ChatMessageHandler {
         } catch (error: any) {
             // // [2026-03-29] [Fix-Error-UI] - Catch runner errors and show them if not already in history
             console.error('[ChatMessageHandler] Runner Error:', error);
-            
+
             const lastMsg = service.messages[service.messages.length - 1];
             const alreadyHasError = lastMsg && lastMsg.content && lastMsg.content.includes('[執行錯誤]');
-            
+
             if (!alreadyHasError) {
                 const errorMsg: ChatMessage = {
                     id: service.generateId(),

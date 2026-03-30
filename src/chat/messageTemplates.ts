@@ -213,7 +213,7 @@ export class MessageTemplates {
             execute: t(lang, 'op_executePending'), 'execute-status': t(lang, 'op_executeStatus'), 'execute-result': t(lang, 'op_executeResult')
         } : {
             create: t(lang, 'op_created'), modify: t(lang, 'op_modified'), replace: t(lang, 'op_modified'), 'delete': t(lang, 'op_deleted'),
-            execute: t(lang, 'op_success'), 'execute-status': t(lang, 'op_executeStatus'), 'execute-result': t(lang, 'op_executeResult')
+            execute: isSuccess === false ? t(lang, 'op_failedStatus') : t(lang, 'op_success'), 'execute-status': t(lang, 'op_executeStatus'), 'execute-result': t(lang, 'op_executeResult')
         };
 
         const actionIcons: Record<string, string> = {

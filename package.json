@@ -5,7 +5,7 @@
   "version": "0.1.19",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BWS/bws-coder"
+    "url": "https://github.com/ramonliu/BWS.Coder"
   },
   "publisher": "BWS",
   "engines": {

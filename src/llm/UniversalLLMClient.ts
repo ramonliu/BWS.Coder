@@ -167,6 +167,24 @@ export class UniversalLLMClient implements ILLMClient {
                 if (i < keys.length - 1 && (!error.response || error.response.status === 401 || error.response.status === 429)) {
                     continue;
                 }
+
+                // [2026-03-30] Extract API error message from stream when failing (e.g. 400 Bad Request)
+                if (error.response?.data && typeof error.response.data.on === 'function') {
+                    try {
+                        const errData = await new Promise<string>((resolve) => {
+                            let data = '';
+                            error.response.data.on('data', (chunk: any) => data += chunk);
+                            error.response.data.on('end', () => resolve(data));
+                            error.response.data.on('error', () => resolve(''));
+                        });
+                        const parsed = JSON.parse(errData);
+                        const msg = parsed?.error?.message || parsed?.message || errData;
+                        lastError = new Error(`API 拒絕請求 (${error.response.status}): ${msg}`);
+                    } catch (e) {
+                        // ignore parsing error
+                    }
+                }
+
                 break;
             }
         }

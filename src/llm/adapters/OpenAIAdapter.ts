@@ -14,24 +14,24 @@ export class OpenAIAdapter implements ILLMAdapter {
         };
     }
 
-    prepareRequest(messages: LLMMessage[], images: string[] | undefined, options: { 
-        keys: string[], 
-        currentIndex: number, 
-        model: string, 
+    prepareRequest(messages: LLMMessage[], images: string[] | undefined, options: {
+        keys: string[],
+        currentIndex: number,
+        model: string,
         endpoint: string,
         temperature?: number,
         maxTokens?: number
     }) {
         const { model } = options;
         const roleCorrectedMessages = ensureMandatoryRoles(messages);
-        
+
         let endpoint = options.endpoint.replace(/\/+$/, '');
         if (endpoint.endsWith('/chat/completions')) {
             endpoint = endpoint.substring(0, endpoint.length - 17);
         } else if (endpoint.endsWith('/chat')) {
             endpoint = endpoint.substring(0, endpoint.length - 5);
         }
-        
+
         if (!endpoint.includes('/v1')) {
             endpoint = `${endpoint}/v1`;
         }
@@ -43,15 +43,23 @@ export class OpenAIAdapter implements ILLMAdapter {
             messages: roleCorrectedMessages.map(m => ({ role: m.role, content: m.content })),
             stream: true
         };
-        if (options.temperature !== undefined) body.temperature = options.temperature;
-        if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+
+        // [2026-03-30] Fix OpenRouter 400 Bad Request: 
+        // 1. o1 and o3-mini models do not support `temperature` (must be 1 or omitted) and `max_tokens`
+        const isReasoningModel = model.toLowerCase().includes('o1-') || model.toLowerCase().includes('o3-');
+
+        if (!isReasoningModel) {
+            if (options.temperature !== undefined) body.temperature = options.temperature;
+            if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+        }
 
         return {
             url,
             body,
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
-                'X-OpenRouter-Title': 'BWS.Coder'
+                'X-OpenRouter-Title': 'BWS.Coder',
+                'HTTP-Referer': 'https://github.com/ramonliu/BWS.Coder'
             }
         };
     }

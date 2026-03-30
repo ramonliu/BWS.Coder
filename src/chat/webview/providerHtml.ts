@@ -98,8 +98,8 @@ export class ProviderHtml {
             const extraClass = isExhausted ? ' exhausted' : '';
             const showReset = isExhausted ? ' visible' : '';
             div.innerHTML = '<input type="text" id="' + id + '" value="' + val.replace(/"/g, '&quot;') + '" class="key-input' + extraClass + '" placeholder="輸入 API Key">' +
-                            '<span class="btn-reset-key' + showReset + '" onclick="resetKeyCD(\'' + id + '\')" title="重置 CD (恢復使用)">🔄</span>' +
-                            '<span class="btn-delete-key" onclick="removeKeyField(\'' + id + '\')">✕</span>';
+                            '<span class="btn-reset-key' + showReset + '" onclick="resetKeyCD(\\' + id + '\\')" title="重置 CD (恢復使用)">🔄</span>' +
+                            '<span class="btn-delete-key" onclick="removeKeyField(\\' + id + '\\')">✕</span>';
             list.appendChild(div);
             div.querySelector('input').focus();
         }

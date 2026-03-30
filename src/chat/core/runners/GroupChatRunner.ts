@@ -4,6 +4,7 @@ import { ChatMessage } from '../../historyManager';
 import { ILLMClient } from '../../../llm/types';
 import { ChatState } from '../../chatService';
 import { ensureMandatoryRoles } from '../../../llm/utils';
+import { t, getLang } from '../../../utils/locale';
 import { Task } from '../Task';
 import { MemoryManager } from '../MemoryManager';
 import { DebugDB } from '../DebugDB';
@@ -49,9 +50,10 @@ export class GroupChatRunner extends ChatExecutor {
         let groupChatClients = availability.filter(a => !a.exhausted).map(a => a.client);
 
         if ((!personas || personas.length === 0) && groupChatClients.length <= 1) {
+            const lang = getLang();
             const exhaustedNames = availability.filter(a => a.exhausted).map(a => (a.client as any).getProviderName ? (a.client as any).getProviderName() : 'AI');
-            let notice = `[系統提示] 您未設定主題且可用的 AI 提供者不足兩個，將以單一模型模式進行一次性對話。`;
-            if (exhaustedNames.length > 0) notice += ` (已排除配額超出的：${exhaustedNames.join(', ')})`;
+            let notice = t(lang, 'msg_groupSingleModeNotice');
+            if (exhaustedNames.length > 0) notice += t(lang, 'msg_groupExhaustedNotice', exhaustedNames.join(', '));
             state.messages.push({ id: state.generateId(), role: 'system', content: notice, timestamp: new Date() });
             groupChatClients = [];
         } else {
@@ -67,7 +69,7 @@ export class GroupChatRunner extends ChatExecutor {
             const participantList = personas && personas.length > 0 
                 ? personas.map(p => p.name).join('、')
                 : groupChatClients.map((c: any) => c.getProviderName ? c.getProviderName() : 'AI').join(', ');
-            state.messages.push({ id: state.generateId(), role: 'system', content: `[系統開始群聊 / 辯論]，參與者：${participantList}\n將自動交替發言，直到達到設限回合或完成任務。`, timestamp: new Date() });
+            state.messages.push({ id: state.generateId(), role: 'system', content: t(getLang(), 'msg_groupChatStarted', participantList), timestamp: new Date() });
         }
         state.updateWebview();
 
@@ -90,7 +92,8 @@ export class GroupChatRunner extends ChatExecutor {
                         if (personas && personas.length > 0) {
                             const currentPersona = personas[personaIndex];
                             providerName = currentPersona.name; // Display name in UI
-                            groupPromptAddon = `\n\n[群聊指令] 你現在的角色是「${currentPersona.name}」。\n${currentPersona.persona}\n\n請以這個身份，針對上文內容發表你的看法，或反駁其他人的觀點。\n⚠️ **注意：這是一場純文字對話辯論。請「直接輸出」你的發言內容，【絕對不要】使用 \`[@@ create:檔案路徑 @@]\` 等任何標籤來建立檔案，也不需要生成總結報告。**`;
+                            const lang = getLang();
+                            groupPromptAddon = t(lang, 'msg_groupPersonaRolePrompt', currentPersona.name, currentPersona.persona);
                             personaIndex = (personaIndex + 1) % personas.length;
                             
                             // [2026-03-29] [Fix-Fallback-Logic] - Use IDs instead of concrete clients
@@ -101,7 +104,7 @@ export class GroupChatRunner extends ChatExecutor {
                             const client = groupChatClients[groupChatIndex];
                             providerId = client.getProviderId();
                             providerName = client.getProviderName();
-                            groupPromptAddon = `\n\n[群聊指令] 你現在是以 ${providerName} 的身份參與討論。請針對上文內容發表你的看法，或繼續執行未完成的任務。\n⚠️ **注意：若無剛性需求，請直接進行文字對話，不要建立檔案。**`;
+                            groupPromptAddon = t(getLang(), 'msg_groupProviderRolePrompt', providerName);
                             groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
                         }
                     }
@@ -145,7 +148,8 @@ export class GroupChatRunner extends ChatExecutor {
 
                     if (isDone && !result.hasOps) {
                         const am = task.assistantMessage;
-                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                        const lang = getLang();
+                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), t(lang, 'msg_completedTask'), am?.taskName);
                         currentState = ChatState.IDLE; // AI 明確宣告完成
                     } else if (result.hasOps) {
                         currentState = ChatState.CHATTING;

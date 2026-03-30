@@ -102,7 +102,9 @@ export class ConcurrentChatRunner extends ChatExecutor {
 
                     if (isDone && !result.hasOps) {
                         const am = task.assistantMessage;
-                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                        const lang = require('../../../utils/locale').getLang();
+                        const t = require('../../../utils/locale').t;
+                        TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), t(lang, 'msg_completedTask'), am?.taskName);
                         currentState = ChatState.IDLE; // AI 明確宣告完成
                     } else if (result.hasOps) {
                         currentState = ChatState.CHATTING;

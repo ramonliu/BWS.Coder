@@ -110,12 +110,16 @@ export class ChatService implements vscode.Disposable {
             await editor.edit(editBuilder => { editBuilder.replace(selection, code); });
             await vscode.commands.executeCommand('editor.action.formatDocument');
         } else {
-            vscode.window.showInformationMessage('請先開啟一個編輯器文件');
+            const lang = require('../utils/locale').getLang();
+            const t = require('../utils/locale').t;
+            vscode.window.showInformationMessage(t(lang, 'err_noActiveEditor'));
         }
     }
 
     public async openImageHTML(data: string) {
-        const panel = vscode.window.createWebviewPanel('imageViewer', 'Image Viewer', { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, localResourceRoots: [vscode.Uri.file(this.context.extensionPath)] });
+        const lang = require('../utils/locale').getLang();
+        const t = require('../utils/locale').t;
+        const panel = vscode.window.createWebviewPanel('imageViewer', t(lang, 'ui_imageViewer'), { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, localResourceRoots: [vscode.Uri.file(this.context.extensionPath)] });
         panel.webview.html = `<html><body style="background:#0a0a0a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><img src="${data}" style="max-width:100%;max-height:100%;cursor:zoom-out" onclick="window.close()"></body></html>`;
         await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
         // [2026-03-28] [FIX_COMPACT_MODE] - Enable compact mode for auxiliary image viewer window
@@ -123,13 +127,16 @@ export class ChatService implements vscode.Disposable {
     }
 
     public async uploadFile() {
-        // [2026-03-28] [FIX_IMAGE_HANDLING] - Added uploadFile method to handle file picker and convert to base64
+        // [2026-03-30] [Universal Localization] - Localized Upload Dialog
+        const lang = require('../utils/locale').getLang();
+        const t = require('../utils/locale').t;
+        
         const uris = await vscode.window.showOpenDialog({
             canSelectMany: true,
-            openLabel: '上傳檔案',
+            openLabel: t(lang, 'ui_uploadFile'),
             filters: {
-                '圖片': ['png', 'jpg', 'jpeg', 'gif', 'webp'],
-                '所有檔案': ['*']
+                [t(lang, 'ui_images')]: ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+                [t(lang, 'ui_allFiles')]: ['*']
             }
         });
 
@@ -156,7 +163,9 @@ export class ChatService implements vscode.Disposable {
         if (changed) await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
         TaskMonitor.getInstance(this.context).forceReset(providerId);
         this.sendLLMStats();
-        vscode.window.showInformationMessage('已完成「電擊救活」！');
+        const lang = require('../utils/locale').getLang();
+        const t = require('../utils/locale').t;
+        vscode.window.showInformationMessage(t(lang, 'msg_resuscitateSuccess'));
     }
 
     public async handleMessage(message: any): Promise<void> {

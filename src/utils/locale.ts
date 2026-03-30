@@ -126,6 +126,66 @@ export type LocaleStrings = {
     cmd_output: string;
     cmd_noOutput: string;
     op_failed: string;
+    op_resultsTitle: string;
+    op_truncatedOutput: string;
+    op_truncatedChars: string;
+    op_successDetail: string;
+    op_readDetail: string;
+    op_executeDetail: string;
+    op_exited: string;
+    op_failedInfo: string;
+    err_fileNotFound: string;
+    err_isDirectory: string;
+    err_noWorkspace: string;
+    msg_commandStarting: string;
+    msg_aiPlanning: string;
+    msg_groupPersonaPlanning: string;
+    msg_groupPersonaSuccess: string;
+    msg_groupPersonaFailed: string;
+    msg_exportSuccess: string;
+    msg_exportFailed: string;
+    msg_exportPrompt: string;
+    msg_loadingLog: string;
+    msg_noLog: string;
+    msg_debug_stateMachine: string;
+    msg_aiLogs: string;
+    msg_aiPlanningPrompt: string;
+    msg_aiPlanningSuccess: string;
+    msg_aiPlanningFailed: string;
+    msg_groupPersonaPrompt: string;
+    msg_exportHeader: string;
+    msg_exportHtml: string;
+    msg_exportMd: string;
+    msg_exportTxt: string;
+    msg_exportXml: string;
+    msg_exportFileOp: string;
+    msg_exportExecOp: string;
+    msg_exportDeleteOp: string;
+    msg_exportReadOp: string;
+    op_attachment: string;
+    err_groupTopicRequired: string;
+    err_workflowNoSteps: string;
+    err_runnerError: string;
+    err_invalidJsonArray: string;
+    msg_groupSingleModeNotice: string;
+    msg_groupExhaustedNotice: string;
+    msg_groupChatStarted: string;
+    msg_groupPersonaRolePrompt: string;
+    msg_groupProviderRolePrompt: string;
+    ui_pending: string;
+    ui_waitingForExec: string;
+    msg_workflowResumeNotice: string;
+    err_workflowPromptInvalid: string;
+    err_promptTooShort: string;
+    err_promptRepeated: string;
+    err_promptPlaceholderUnfilled: string;
+    msg_completedTask: string;
+    err_noActiveEditor: string;
+    ui_uploadFile: string;
+    ui_allFiles: string;
+    msg_resuscitateSuccess: string;
+    ui_imageViewer: string;
+    err_noActiveProviders: string;
 
     // [2026-03-30] Full Localization - Provider Manager UI strings
     pm_title: string;
@@ -299,6 +359,66 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_output: '輸出內容：\n{0}\n',
         cmd_noOutput: '(無輸出)',
         op_failed: '❌ 操作 {0} 失敗：{1}',
+        op_resultsTitle: '\n\n---\n**📁 檔案操作結果：**\n',
+        op_truncatedOutput: '\n\n[... (此處為節省 Token 空間，已省略中間約 {0} 行日誌。完整內容請見 VS Code 輸出通道) ...]\n\n',
+        op_truncatedChars: '\n\n[... (日誌字數過長，已截斷尾部 ...)]',
+        op_successDetail: '✅ {0} 成功: {1}',
+        op_readDetail: '📄 已讀取檔案 \`{0}\`，內容如下：\n\`\`\`\n{1}\n\`\`\`\n',
+        op_executeDetail: '指令 \`{0}\` 執行{1}\n輸出內容：\n{2}\n',
+        op_exited: '進程已退出 ({0})',
+        op_failedInfo: '操作 {0} 失敗：{1}',
+        err_fileNotFound: '檔案或目錄不存在',
+        err_isDirectory: '無法讀取目錄，請提供檔案路徑',
+        err_noWorkspace: '未開啟工作區，無法執行操作',
+        msg_commandStarting: '[BWS.Coder] 啟動指令: {0}',
+        msg_aiPlanning: '⏳ **AI 工作流規劃中...** 正在分析您的需求並生成步驟，請稍候。',
+        msg_groupPersonaPlanning: '⏳ **AI 討論角色安排中...** 正在根據題目生成不同觀點的參與者，請稍候。',
+        msg_groupPersonaSuccess: '✅ **AI 已生成 {0} 個討論角色**',
+        msg_groupPersonaFailed: '⚠️ **角色安排失敗**，將退回預設群聊模式。（錯誤：{0}）',
+        msg_exportSuccess: '✅ **對話紀錄已成功匯出！**\n檔案已儲存至：\`{0}\`',
+        msg_exportFailed: '匯出失敗: {0}',
+        msg_exportPrompt: '匯出對話紀錄',
+        msg_loadingLog: '正在載入 AI 日誌...',
+        msg_noLog: '目前尚無日誌記錄',
+        msg_debug_stateMachine: '[除錯] 狀態機進度: {0}',
+        msg_aiLogs: 'BWS.Coder AI 原始日誌',
+        msg_aiPlanningPrompt: '針對以下需求進行工作流規劃：',
+        msg_aiPlanningSuccess: '✅ **工作流規劃完成**，已自動載入 {0} 個步驟至 Task Manager。',
+        msg_aiPlanningFailed: '⚠️ **工作流規劃失敗**: {0}',
+        msg_groupPersonaPrompt: '請為以下主題生成討論角色：',
+        msg_exportHeader: '# BWS.Coder 對話紀錄\n\n匯出時間：{0}\n\n---\n\n',
+        msg_exportHtml: 'HTML (網頁版視覺)',
+        msg_exportMd: 'Markdown (適合筆記)',
+        msg_exportTxt: 'Plain Text (純文字)',
+        msg_exportXml: 'XML (程式讀取)',
+        msg_exportFileOp: '\n**建立/修改檔案：`$2`**\n```\n',
+        msg_exportExecOp: '\n**執行指令：** `$1`\n',
+        msg_exportDeleteOp: '\n**刪除檔案：** `$1`\n',
+        msg_exportReadOp: '\n**讀取檔案：** `$1`\n',
+        op_attachment: '[附件檔案: {0}]',
+        err_groupTopicRequired: '請在 /group 或 /debate 後面加上討論主題。例如：/group AI是否會取代人類工作',
+        err_workflowNoSteps: '[Workflow] 尚未設定任何步驟，或所有步驟已停用。請在 Workflow 面板中新增步驟並儲存。',
+        err_runnerError: '❌ **執行錯誤**: {0}\n\n請檢查 API Key 額度是否充足，或嘗試重新整理提供者。',
+        err_invalidJsonArray: 'AI 回傳的格式不正確（預期為 JSON 陣列）',
+        msg_groupSingleModeNotice: '[系統提示] 您未設定主題且可用的 AI 提供者不足兩個，將以單一模型模式進行一次性對話。',
+        msg_groupExhaustedNotice: ' (已排除配額超出的：{0})',
+        msg_groupChatStarted: '[系統開始群聊 / 辯論]，參與者：{0}\n將自動交替發言，直到達到設限回合或完成任務。',
+        msg_groupPersonaRolePrompt: '\n\n[群聊指令] 你現在的角色是「{0}」。\n{1}\n\n請以這個身份，針對上文內容發表你的看法，或反駁其他人的觀點。\n⚠️ **注意：這是一場純文字對話辯論。請「直接輸出」你的發言內容，【絕對不要】使用 \`[@@ create:檔案路徑 @@]\` 等任何標籤來建立檔案，也不需要生成總結報告。**',
+        msg_groupProviderRolePrompt: '\n\n[群聊指令] 你現在是以 {0} 的身份參與討論。請針對上文內容發表你的看法，或繼續執行未完成的任務。\n⚠️ **注意：若無剛性需求，請直接進行文字對話，不要建立檔案。**',
+        ui_pending: '等待中',
+        ui_waitingForExec: '等待執行',
+        msg_workflowResumeNotice: '[系統通知] 偵測到前 {0} 個步驟已完成，將從步驟「{1}」開始繼續任務。',
+        err_workflowPromptInvalid: '⚠️ [WorkflowRunner] 步驟「{0}」的 Prompt 品質不合格，已跳過。\n\n**問題**: {1}\n\n請重新使用 /plan 產生工作流程，或手動修正 Prompt。',
+        err_promptTooShort: 'Prompt 內容過短或空白',
+        err_promptRepeated: 'Prompt 包含重複詞語「{0}」(出現 3 次以上)，疑似 AI 生成亂碼',
+        err_promptPlaceholderUnfilled: 'Prompt 包含未填入的佔位符「{0}」',
+        msg_completedTask: '完成任務',
+        err_noActiveEditor: '請先開啟一個編輯器文件',
+        ui_uploadFile: '上傳檔案',
+        ui_allFiles: '所有檔案',
+        msg_resuscitateSuccess: '已完成「電擊救活」！',
+        ui_imageViewer: '圖片檢視器',
+        err_noActiveProviders: '請先在 Provider Manager 中啟用至少一個 AI 提供者',
 
         // [2026-03-30] Full Localization - Provider Manager (zh-TW)
         pm_title: 'BWS.Coder - LLM 提供者管理',
@@ -470,6 +590,66 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_output: '输出内容：\n{0}\n',
         cmd_noOutput: '(无输出)',
         op_failed: '❌ 操作 {0} 失败：{1}',
+        op_resultsTitle: '\n\n---\n**📁 文件操作结果：**\n',
+        op_truncatedOutput: '\n\n[... (此处为节省 Token 空间，已省略中间约 {0} 行日志。完整内容请见 VS Code 输出通道) ...]\n\n',
+        op_truncatedChars: '\n\n[... (日志字数过长，已截断尾部 ...)]',
+        op_successDetail: '✅ {0} 成功: {1}',
+        op_readDetail: '📄 已读取文件 \`{0}\`，内容如下：\n\`\`\`\n{1}\n\`\`\`\n',
+        op_executeDetail: '指令 \`{0}\` 执行{1}\n输出内容：\n{2}\n',
+        op_exited: '进程已退出 ({0})',
+        op_failedInfo: '操作 {0} 失败：{1}',
+        err_fileNotFound: '文件或目录不存在',
+        err_isDirectory: '无法读取目录，请提供文件路径',
+        err_noWorkspace: '未打开工作区，无法执行操作',
+        msg_commandStarting: '[BWS.Coder] 启动指令: {0}',
+        msg_aiPlanning: '⏳ **AI 工作流规划中...** 正在分析您的需求并生成步骤，请稍候。',
+        msg_groupPersonaPlanning: '⏳ **AI 讨论角色安排中...** 正在根据题目生成不同观点的参与者，请稍候。',
+        msg_groupPersonaSuccess: '✅ **AI 已生成 {0} 个讨论角色**',
+        msg_groupPersonaFailed: '⚠️ **角色安排失败**，将退回默认群聊模式。（错误：{0}）',
+        msg_exportSuccess: '✅ **对话记录已成功导出！**\n文件已储存至：\`{0}\`',
+        msg_exportFailed: '导出失败: {0}',
+        msg_exportPrompt: '导出对话记录',
+        msg_loadingLog: '正在载入 AI 日志...',
+        msg_noLog: '目前尚无日志记录',
+        msg_debug_stateMachine: '[除错] 状态机进度: {0}',
+        msg_aiLogs: 'BWS.Coder AI 原始日志',
+        msg_aiPlanningPrompt: '针对以下需求进行工作流规划：',
+        msg_aiPlanningSuccess: '✅ **工作流规划完成**，已自动载入 {0} 个步骤至 Task Manager。',
+        msg_aiPlanningFailed: '⚠️ **工作流规划失败**: {0}',
+        msg_groupPersonaPrompt: '请为以下主题生成讨论角色：',
+        msg_exportHeader: '# BWS.Coder 对话记录\n\n导出时间：{0}\n\n---\n\n',
+        msg_exportHtml: 'HTML (网页版视觉)',
+        msg_exportMd: 'Markdown (适合笔记)',
+        msg_exportTxt: 'Plain Text (纯文字)',
+        msg_exportXml: 'XML (程序读取)',
+        msg_exportFileOp: '\n**创建/修改文件：`$2`**\n```\n',
+        msg_exportExecOp: '\n**执行指令：** `$1`\n',
+        msg_exportDeleteOp: '\n**删除文件：** `$1`\n',
+        msg_exportReadOp: '\n**读取文件：** `$1`\n',
+        op_attachment: '[附件文件: {0}]',
+        err_groupTopicRequired: '请在 /group 或 /debate 后面加上讨论主题。例如：/group AI是否会取代人类工作',
+        err_workflowNoSteps: '[Workflow] 尚未设置任何步骤，或所有步骤已禁用。请在 Workflow 面板中新增步骤并保存。',
+        err_runnerError: '❌ **执行错误**: {0}\n\n请检查 API Key 额度是否充足，或尝试刷新提供者。',
+        err_invalidJsonArray: 'AI 返回的格式不正确（预期为 JSON 数组）',
+        msg_groupSingleModeNotice: '[系统提示] 您未设置主题且可用的 AI 提供者不足两个，将以单一模型模式进行一次性对话。',
+        msg_groupExhaustedNotice: ' (已排除配额超出的：{0})',
+        msg_groupChatStarted: '[系统开始群聊 / 辩论]，参与者：{0}\n将自动交替发言，直到达到设限回合或完成任务。',
+        msg_groupPersonaRolePrompt: '\n\n[群聊指令] 你现在的角色是“{0}”。\n{1}\n\n请以这个身份，针对上文内容发表你的看法，或反驳其他人的观点。\n⚠️ **注意：这是一场纯文字对话辩论。请“直接输出”你的发言内容，【绝对不要】使用 \`[@@ create:文件路径 @@]\` 等任何标签来创建文件，也不需要生成总结报告。**',
+        msg_groupProviderRolePrompt: '\n\n[群聊指令] 你现在是以 {0} 的身份参与讨论。请针对上文内容发表你的看法，或继续执行未完成的任务。\n⚠️ **注意：若无刚性需求，请直接进行文字对话，不要创建文件。**',
+        ui_pending: '等待中',
+        ui_waitingForExec: '等待执行',
+        msg_workflowResumeNotice: '[系统通知] 检测到前 {0} 个步骤已完成，将从步骤“{1}”开始继续任务。',
+        err_workflowPromptInvalid: '⚠️ [WorkflowRunner] 步骤“{0}”的 Prompt 质量不合格，已跳过。\n\n**问题**: {1}\n\n请重新使用 /plan 生成工作流程，或手动修正 Prompt。',
+        err_promptTooShort: 'Prompt 内容过短或空白',
+        err_promptRepeated: 'Prompt 包含重复词语“{0}”(出现 3 次以上)，疑似 AI 生成乱码',
+        err_promptPlaceholderUnfilled: 'Prompt 包含未填入的占位符“{0}”',
+        msg_completedTask: '完成任务',
+        err_noActiveEditor: '请先开启一个编辑器文件',
+        ui_uploadFile: '上传文件',
+        ui_allFiles: '所有文件',
+        msg_resuscitateSuccess: '已完成“电击救活”！',
+        ui_imageViewer: '图片检视器',
+        err_noActiveProviders: '请先在 Provider Manager 中启用至少一个 AI 提供者',
 
         // [2026-03-30] Full Localization - Provider Manager (zh-CN)
         pm_title: 'BWS.Coder - LLM 提供者管理',
@@ -641,6 +821,66 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         cmd_output: 'Output:\n{0}\n',
         cmd_noOutput: '(No output)',
         op_failed: '❌ Operation {0} failed: {1}',
+        op_resultsTitle: '\n\n---\n**📁 File Operation Results:**\n',
+        op_truncatedOutput: '\n\n[... (Skipped approximately {0} lines of logs to save token space. Full output available in VS Code Output Channel) ...]\n\n',
+        op_truncatedChars: '\n\n[... (Log is too long, trailing part truncated ...)]',
+        op_successDetail: '✅ {0} success: {1}',
+        op_readDetail: '📄 Read file \`{0}\`, content below:\n\`\`\`\n{1}\n\`\`\`\n',
+        op_executeDetail: 'Command \`{0}\` execution {1}\nOutput:\n{2}\n',
+        op_exited: 'Process exited ({0})',
+        op_failedInfo: 'Operation {0} failed: {1}',
+        err_fileNotFound: 'File or directory not found',
+        err_isDirectory: 'Cannot read directory, please provide file path',
+        err_noWorkspace: 'No workspace opened, cannot execute operation',
+        msg_commandStarting: '[BWS.Coder] Starting command: {0}',
+        msg_aiPlanning: '⏳ **AI Workflow planning in progress...** Analyzing your request and generating steps, please wait.',
+        msg_groupPersonaPlanning: '⏳ **AI Discussion roles mapping...** Generating participants with different views, please wait.',
+        msg_groupPersonaSuccess: '✅ **AI generated {0} discussion roles**',
+        msg_groupPersonaFailed: '⚠️ **Role mapping failed**, falling back to default group chat. (Error: {1})',
+        msg_exportSuccess: '✅ **Chat history exported successfully!**\nFile saved to: \`{0}\`',
+        msg_exportFailed: 'Export failed: {0}',
+        msg_exportPrompt: 'Export Chat History',
+        msg_loadingLog: 'Loading AI logs...',
+        msg_noLog: 'No log records available',
+        msg_debug_stateMachine: '[Debug] State machine progress: {0}',
+        msg_aiLogs: 'BWS.Coder AI Raw Logs',
+        msg_aiPlanningPrompt: 'Plan workflow for the following requirement:',
+        msg_aiPlanningSuccess: '✅ **Workflow planning completed**, automatically loaded {0} steps to Task Manager.',
+        msg_aiPlanningFailed: '⚠️ **Workflow planning failed**: {0}',
+        msg_groupPersonaPrompt: 'Generate discussion personas for the following topic:',
+        msg_exportHeader: '# BWS.Coder Chat History\n\nExported at: {0}\n\n---\n\n',
+        msg_exportHtml: 'HTML (Visual Web Version)',
+        msg_exportMd: 'Markdown (Notebook format)',
+        msg_exportTxt: 'Plain Text',
+        msg_exportXml: 'XML (Machine readable)',
+        msg_exportFileOp: '\n**Create/Modify file: `$2`**\n```\n',
+        msg_exportExecOp: '\n**Execute command:** `$1`\n',
+        msg_exportDeleteOp: '\n**Delete file:** `$1`\n',
+        msg_exportReadOp: '\n**Read file:** `$1`\n',
+        op_attachment: '[Attachment: {0}]',
+        err_groupTopicRequired: 'Please add a topic after /group or /debate. Example: /group Will AI replace human jobs?',
+        err_workflowNoSteps: '[Workflow] No steps configured yet, or all steps are disabled. Please add steps in the Workflow panel and save.',
+        err_runnerError: '❌ **Execution Error**: {0}\n\nPlease check if your API Key has sufficient quota, or try refreshing the providers.',
+        err_invalidJsonArray: 'Invalid format returned by AI (expected JSON array)',
+        msg_groupSingleModeNotice: '[System] Topic not set and fewer than two available AI providers. Starting one-time conversation with a single model.',
+        msg_groupExhaustedNotice: ' (Excluded exhausted providers: {0})',
+        msg_groupChatStarted: '[System starting Group Chat / Debate], participants: {0}\nTurns will rotate automatically until the turn limit or task completion.',
+        msg_groupPersonaRolePrompt: '\n\n[Group Chat Command] You are now roleplaying as "{0}".\n{1}\n\nPlease speak from this perspective, commenting on previous views or counter-arguing others.\n⚠️ **Note: This is a text-only debate. DO NOT use \`[@@ create:path @@]\` tags to create files, and do not generate summary reports.**',
+        msg_groupProviderRolePrompt: '\n\n[Group Chat Command] You are now participating as {0}. Please comment on the previous context or proceed with pending tasks.\n⚠️ **Note: Unless strictly required, stick to text-only conversation and avoid creating files.**',
+        ui_pending: 'Idle',
+        ui_waitingForExec: 'Waiting',
+        msg_workflowResumeNotice: '[System] Detected that the first {0} steps are completed. Resuming from step "{1}".',
+        err_workflowPromptInvalid: '⚠️ [WorkflowRunner] Step "{0}" prompt quality is insufficient, skipped.\n\n**Issue**: {1}\n\nPlease regenerate with /plan or fix manually.',
+        err_promptTooShort: 'Prompt is too short or empty',
+        err_promptRepeated: 'Prompt contains repeated word "{0}" (3+ times), looks like AI-generated gibberish',
+        err_promptPlaceholderUnfilled: 'Prompt contains unfilled placeholder "{0}"',
+        msg_completedTask: 'Task Completed',
+        err_noActiveEditor: 'Please open an editor window first',
+        ui_uploadFile: 'Upload File',
+        ui_allFiles: 'All Files',
+        msg_resuscitateSuccess: 'CD Reset (Resuscitation) Completed!',
+        ui_imageViewer: 'Image Viewer',
+        err_noActiveProviders: 'Please enable at least one AI provider in the Provider Manager',
 
         // [2026-03-30] Full Localization - Provider Manager (en)
         pm_title: 'BWS.Coder - LLM Provider Management',

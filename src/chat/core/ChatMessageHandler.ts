@@ -54,6 +54,18 @@ export class ChatMessageHandler {
         const config = vscode.workspace.getConfiguration('bwsCoder');
         const outputLang = config.get<string>('language') as any || 'zh-TW';
 
+        // [2026-03-30] Universal Localization - Intercept /setting and /manage commands
+        const trimmedText = text.trim();
+        const lowerText = trimmedText.toLowerCase();
+        if (lowerText === '/setting') {
+            vscode.commands.executeCommand('bwsCoder.configure');
+            return;
+        }
+        if (lowerText === '/manage') {
+            vscode.commands.executeCommand('bwsCoder.manageProviders');
+            return;
+        }
+
         // [2026-03-29] [Workflow-ModularPrompt] - Load Persona and Action Format separately
         let personaPrompt = '';
         let actionFormatPrompt = '';
@@ -115,7 +127,7 @@ export class ChatMessageHandler {
         let content = text;
         if (attachments) {
             attachments.forEach(a => {
-                if (a.type === 'file') content += `\n\n[附件檔案: ${a.name}]\n\`\`\`\n${a.content}\n\`\`\``;
+                if (a.type === 'file') content += `\n\n${t(outputLang, 'op_attachment', a.name)}\n\`\`\`\n${a.content}\n\`\`\``;
             });
         }
 
@@ -168,7 +180,6 @@ export class ChatMessageHandler {
             }
         }
 
-        const trimmedText = text.trim();
         const needsAIPlan = trimmedText.startsWith('/plan') || text.includes('請幫實現工作流');
 
         // [2026-03-27] [Feature-Export] - Intercept /export command
@@ -258,7 +269,7 @@ export class ChatMessageHandler {
                 const topic = topicMatch ? topicMatch[2].trim() : '';
 
                 if (!topic) {
-                    vscode.window.showWarningMessage('請在 /group 或 /debate 後面加上討論主題。例如：/group AI是否會取代人類工作');
+                    vscode.window.showWarningMessage(t(outputLang, 'err_groupTopicRequired'));
                     service.isGenerating = false;
                     service.updateWebview();
                     return;
@@ -273,7 +284,7 @@ export class ChatMessageHandler {
                     await this.runner.runWorkflowStrategy(commonState, personaPrompt, functionalPrompt, images, workflowSteps, actualTextToRun, service.globalCts, service.streamCts);
                 } else {
                     // Workflow tab 已選但步驟為空，提示使用者
-                    const warnMsg = { id: service.generateId(), role: 'system' as const, content: '[Workflow] 尚未設定任何步驟，或所有步驟已停用。請在 Workflow 面板中新增步驟並儲存。', timestamp: new Date() };
+                    const warnMsg = { id: service.generateId(), role: 'system' as const, content: t(outputLang, 'err_workflowNoSteps'), timestamp: new Date() };
                     service.messages.push(warnMsg);
                     service.isGenerating = false;
                     service.updateWebview();
@@ -295,7 +306,7 @@ export class ChatMessageHandler {
                 const errorMsg: ChatMessage = {
                     id: service.generateId(),
                     role: 'system',
-                    content: `❌ **執行錯誤**: ${error.message || error}\n\n請檢查 API Key 額度是否充足，或嘗試重新整理提供者。`,
+                    content: t(outputLang, 'err_runnerError', error.message || error),
                     timestamp: new Date()
                 };
                 service.messages.push(errorMsg);
@@ -310,13 +321,14 @@ export class ChatMessageHandler {
 
     // [2026-03-27] [Feature-Export] - Export chat history to markdown, xml, txt, or html
     private async handleExportChat(service: any): Promise<void> {
+        const lang = vscode.workspace.getConfiguration('bwsCoder').get<string>('language') || 'zh-TW';
         const uri = await vscode.window.showSaveDialog({
-            title: '匯出對話紀錄',
+            title: t(lang, 'msg_exportPrompt'),
             filters: {
-                'HTML (網頁版視覺)': ['html'],
-                'Markdown (適合筆記)': ['md'],
-                'Plain Text (純文字)': ['txt'],
-                'XML (程式讀取)': ['xml']
+                [t(lang, 'msg_exportHtml')]: ['html'],
+                [t(lang, 'msg_exportMd')]: ['md'],
+                [t(lang, 'msg_exportTxt')]: ['txt'],
+                [t(lang, 'msg_exportXml')]: ['xml']
             },
             defaultUri: vscode.Uri.file(`BWS_Coder_Chat_${new Date().toISOString().replace(/[:.]/g, '')}.html`)
         });
@@ -352,8 +364,8 @@ export class ChatMessageHandler {
                 pre code { background-color: transparent; padding: 0; }
                 .title { text-align: center; color: #fff; margin-bottom: 30px; }
             `;
-            exportContent = `<!DOCTYPE html>\n<html lang="zh-TW">\n<head>\n<meta charset="UTF-8">\n<title>BWS.Coder 對話紀錄</title>\n<style>${css}</style>\n</head>\n<body>\n`;
-            exportContent += `<div class="chat-container">\n<h2 class="title">BWS.Coder 討論紀錄</h2>\n`;
+            exportContent = `<!DOCTYPE html>\n<html lang="${lang}">\n<head>\n<meta charset="UTF-8">\n<title>${t(lang, 'msg_aiLogs')}</title>\n<style>${css}</style>\n</head>\n<body>\n`;
+            exportContent += `<div class="chat-container">\n<h2 class="title">${t(lang, 'msg_aiLogs')}</h2>\n`;
             for (const msg of messages) {
                 const roleName = msg.role === 'user' ? 'User' : (msg.providerName || 'AI');
                 const time = getAsDate(msg.timestamp).toLocaleTimeString();
@@ -389,16 +401,16 @@ export class ChatMessageHandler {
             }
         } else {
             // Default: Markdown (.md)
-            exportContent = `# BWS.Coder 對話紀錄\n\n匯出時間：${new Date().toLocaleString()}\n\n---\n\n`;
+            exportContent = t(lang, 'msg_exportHeader', new Date().toLocaleString());
             for (const msg of messages) {
                 const roleName = msg.role === 'user' ? 'User' : (msg.providerName || 'AI');
                 exportContent += `### 👤 **${roleName}** _(${getAsDate(msg.timestamp).toLocaleString()})_\n\n`;
                 // For markdown, we keep the code but just clean up the raw tags so it looks nice
                 let cleanMd = msg.content
-                    .replace(/\[@@\s*(create|write|modify|replace):\s*(.*?)@@\]\r?\n?/g, '\n**建立/修改檔案：`$2`**\n```\n')
-                    .replace(/\[@@\s*execute:\s*(.*?)@@\]\r?\n?/g, '\n**執行指令：** `$1`\n')
-                    .replace(/\[@@\s*delete:\s*(.*?)@@\]\r?\n?/g, '\n**刪除檔案：** `$1`\n')
-                    .replace(/\[@@\s*read:\s*(.*?)@@\]\r?\n?/g, '\n**讀取檔案：** `$1`\n')
+                    .replace(/\[@@\s*(create|write|modify|replace):\s*(.*?)@@\]\r?\n?/g, t(lang, 'msg_exportFileOp'))
+                    .replace(/\[@@\s*execute:\s*(.*?)@@\]\r?\n?/g, t(lang, 'msg_exportExecOp'))
+                    .replace(/\[@@\s*delete:\s*(.*?)@@\]\r?\n?/g, t(lang, 'msg_exportDeleteOp'))
+                    .replace(/\[@@\s*read:\s*(.*?)@@\]\r?\n?/g, t(lang, 'msg_exportReadOp'))
                     .replace(/\[@@\s*eof\s*@@\]\r?\n?/g, '\n```\n');
                 exportContent += `${cleanMd.trim()}\n\n---\n\n`;
             }
@@ -411,13 +423,13 @@ export class ChatMessageHandler {
             const successMsg: ChatMessage = {
                 id: service.generateId(),
                 role: 'system',
-                content: `✅ **對話紀錄已成功匯出！**\n檔案已儲存至：\`${uri.fsPath}\``,
+                content: t(lang, 'msg_exportSuccess', uri.fsPath),
                 timestamp: new Date()
             };
             service.messages.push(successMsg);
             service.updateWebview();
-        } catch (e) {
-            vscode.window.showErrorMessage(`匯出失敗: ${e}`);
+        } catch (e: any) {
+            vscode.window.showErrorMessage(t(lang, 'msg_exportFailed', e.message || String(e)));
         }
     }
 
@@ -426,7 +438,7 @@ export class ChatMessageHandler {
         const pendingMsg: ChatMessage = {
             id: service.generateId(),
             role: 'system',
-            content: '⏳ **AI 討論角色安排中...** 正在根據題目生成不同觀點的參與者，請稍候。',
+            content: t(outputLang, 'msg_groupPersonaPlanning'),
             timestamp: new Date()
         };
         service.messages.push(pendingMsg);
@@ -438,7 +450,7 @@ export class ChatMessageHandler {
         try {
             const planMessages = [
                 { role: 'system', content: planPrompt },
-                { role: 'user', content: `請為以下主題生成討論角色：\n${topic}` }
+                { role: 'user', content: `${t(outputLang, 'msg_groupPersonaPrompt')}\n${topic}` }
             ];
 
             const stream = service.client.chat(planMessages, undefined, undefined, undefined, undefined, undefined, undefined, 'Group Persona Planning');
@@ -456,25 +468,28 @@ export class ChatMessageHandler {
             const personas = JSON.parse(jsonStr);
             if (Array.isArray(personas) && personas.length > 0) {
                 // Update the pending message to success statement
-                pendingMsg.content = `✅ **AI 已生成 ${personas.length} 個討論角色**\n\n` +
+                pendingMsg.content = `${t(outputLang, 'msg_groupPersonaSuccess', personas.length)}\n\n` +
                     personas.map((p: any) => `- **${p.name}**: ${p.persona.substring(0, 30)}...`).join('\n');
                 service.updateWebview();
                 return personas;
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('[Group Persona Plan Error]', e);
-            pendingMsg.content = `⚠️ **角色安排失敗**，將退回預設群聊模式。（錯誤：${e}）`;
+            pendingMsg.content = t(outputLang, 'msg_groupPersonaFailed', e.message || String(e));
             service.updateWebview();
         }
         return undefined;
     }
 
     private async handleAIPlanWorkflow(text: string, service: any): Promise<void> {
+        const config = vscode.workspace.getConfiguration('bwsCoder');
+        const outputLang = config.get<string>('language') as any || 'zh-TW';
+
         // [2026-03-28] [CLEAR_DASHBOARD_CARDS] - Clear existing task cards before starting a new workflow plan
         TaskMonitor.getInstance().clearAll();
 
         if (!text || text.trim() === '') {
-            vscode.window.showWarningMessage('請在對話框輸入您的需求，再進行 AI 規劃。');
+            vscode.window.showWarningMessage(t(outputLang, 'wf_requireInputFirst'));
             return;
         }
 
@@ -482,21 +497,19 @@ export class ChatMessageHandler {
         const pendingMsg: ChatMessage = {
             id: service.generateId(),
             role: 'system',
-            content: '⏳ **AI 工作流規劃中...** 正在分析您的需求並生成步驟，請稍候。',
+            content: t(outputLang, 'msg_aiPlanning'),
             timestamp: new Date()
         };
         service.messages.push(pendingMsg);
         service.isGenerating = true;
         service.updateWebview();
 
-        const config = vscode.workspace.getConfiguration('bwsCoder');
-        const outputLang = config.get<string>('language') as any || 'zh-TW';
         const planPrompt = PromptBuilder.getWorkflowPlanningPrompt(outputLang);
 
         try {
             const planMessages = [
                 { role: 'system', content: planPrompt },
-                { role: 'user', content: `針對以下需求進行工作流規劃：\n${text}` }
+                { role: 'user', content: `${t(outputLang, 'msg_aiPlanningPrompt')}\n${text}` }
             ];
 
             const stream = service.client.chat(planMessages, undefined, undefined, undefined, undefined, undefined, undefined, 'Workflow Planning');
@@ -516,17 +529,18 @@ export class ChatMessageHandler {
 
             if (Array.isArray(steps)) {
                 this.workflowManager.save(steps);
-                pendingMsg.content = `✅ **工作流規劃完成**，已自動載入 ${steps.length} 個步驟至 Task Manager。`;
+                pendingMsg.content = t(outputLang, 'msg_aiPlanningSuccess', steps.length);
                 service.updateWebview();
                 this.messenger.openWorkflowPanel();
-                vscode.window.showInformationMessage(`AI 已成功規劃了 ${steps.length} 個步驟。`);
+                vscode.window.showInformationMessage(t(outputLang, 'msg_aiPlanningSuccess', steps.length).replace('✅ **', '').replace('**', ''));
             } else {
-                throw new Error('AI 回傳的格式不正確（預期為 JSON 陣列）');
+                throw new Error(t(outputLang, 'err_invalidJsonArray'));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('[AI Plan Error]', e);
-            pendingMsg.content = `⚠️ **工作流規劃失敗**: ${e}`;
-            vscode.window.showErrorMessage(`AI 規劃失敗: ${e}`);
+            const errDetail = e.message || String(e);
+            pendingMsg.content = t(outputLang, 'msg_aiPlanningFailed', errDetail);
+            vscode.window.showErrorMessage(t(outputLang, 'msg_aiPlanningFailed', errDetail).replace('⚠️ **', '').replace('**', ''));
         } finally {
             service.isGenerating = false;
             service.updateWebview();

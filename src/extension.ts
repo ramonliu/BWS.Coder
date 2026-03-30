@@ -57,6 +57,8 @@ export async function activate(context: vscode.ExtensionContext) {
         if (e.affectsConfiguration('bwsCoder.language')) {
           providerManager.refreshLocale();
           settingsManager.refreshLocale();
+          // Update tooltip since it's only set once in createStatusBarItem
+          statusBarItem.tooltip = t(getLang(), 'ui_statusBarAi');
         }
       }
     })

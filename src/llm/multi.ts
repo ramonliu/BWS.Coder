@@ -124,8 +124,9 @@ export class MultiLLMClient implements ILLMClient {
     let lastError: any = null;
     let switchCount = 0;
 
+    // [2026-03-30] Universal Localization - Final Touches Phase 7
     if (clients.length === 0) {
-      throw new Error('請先在 Provider Manager 中啟用至少一個 AI 提供者');
+      throw new Error(t(getLang(), 'err_noActiveProviders'));
     }
 
     const config = vscode.workspace.getConfiguration('bwsCoder');

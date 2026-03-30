@@ -6,6 +6,7 @@ import { MultiLLMClient } from '../../../llm/multi';
 import { ensureMandatoryRoles } from '../../../llm/utils';
 import { ChatState } from '../../chatService';
 import { TaskMonitor, TaskMonitorStatus } from '../../taskMonitor';
+import { t, getLang } from '../../../utils/locale';
 import { Task } from '../Task';
 import { MemoryManager } from '../MemoryManager';
 import { DebugDB } from '../DebugDB';
@@ -33,9 +34,10 @@ export class WorkflowRunner extends ChatExecutor {
         
         // [2026-03-25] Task-Centric Dashboard - Pre-initialize all steps as IDLE
         const monitor = TaskMonitor.getInstance(this.context);
+        const lang = getLang();
         steps.forEach(step => {
             const pid = step.providerId === 'default' ? state.client.getProviderId() : step.providerId;
-            monitor.updateStatus(pid, '等待中', TaskMonitorStatus.IDLE, state.client.isCloudProvider(), '等待執行', step.role);
+            monitor.updateStatus(pid, t(lang, 'ui_pending'), TaskMonitorStatus.IDLE, state.client.isCloudProvider(), t(lang, 'ui_waitingForExec'), step.role);
         });
         
         state.updateWebview();
@@ -46,7 +48,7 @@ export class WorkflowRunner extends ChatExecutor {
             state.messages.push({
                 id: state.generateId(),
                 role: 'system',
-                content: `[系統通知] 偵測到前 ${resumeIndex} 個步驟已完成，將從步驟「${steps[resumeIndex].role}」開始繼續任務。`,
+                content: t(getLang(), 'msg_workflowResumeNotice', resumeIndex, steps[resumeIndex].role),
                 timestamp: new Date()
             });
             state.updateWebview();
@@ -120,11 +122,11 @@ export class WorkflowRunner extends ChatExecutor {
         // [2026-03-27] [Fix-PlanQuality] - Validate prompt before running to detect garbage output from /plan AI
         const promptIssues = this.validateStepPrompt(step.prompt, step.role);
         if (promptIssues) {
-            const am = state.messages[state.messages.length - 1];
+            const lang = getLang();
             const warnMsg: import('../../historyManager').ChatMessage = {
                 id: state.generateId(),
                 role: 'assistant',
-                content: `⚠️ [WorkflowRunner] 步驟「${step.role}」的 Prompt 品質不合格，已跳過。\n\n**問題**: ${promptIssues}\n\n請重新使用 /plan 產生工作流程，或手動修正 Prompt。`,
+                content: t(lang, 'err_workflowPromptInvalid', step.role, promptIssues),
                 timestamp: new Date(),
                 providerName: 'System',
                 taskName: step.role
@@ -180,7 +182,8 @@ export class WorkflowRunner extends ChatExecutor {
 
             if (isDone) {
                 const am = task.assistantMessage;
-                TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), '完成任務', am?.taskName);
+                const lang = getLang();
+                TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), t(lang, 'msg_completedTask'), am?.taskName);
                 isStepDone = true;
             } else if (result.hasOps) {
                 // [核心邏輯]：進度重置 (Progress-Based Reset) - ONLY if not done
@@ -198,18 +201,19 @@ export class WorkflowRunner extends ChatExecutor {
     // [2026-03-27] [Fix-PlanQuality] - Validate step prompt quality before execution
     // Detects garbled AI output (repeated words, unfilled placeholders) from the /plan command
     private validateStepPrompt(prompt: string, role: string): string | null {
+        const lang = getLang();
         if (!prompt || prompt.trim().length < 10) {
-            return `Prompt 內容過短或空白`;
+            return t(lang, 'err_promptTooShort');
         }
         // Detect word repeated 3+ times consecutively (e.g. "架構架構架構")
         const repeatMatch = prompt.match(/(\S{2,})\1{2,}/u);
         if (repeatMatch) {
-            return `Prompt 包含重複詞語「${repeatMatch[1]}」(出現 3 次以上)，疑似 AI 生成亂碼`;
+            return t(lang, 'err_promptRepeated', repeatMatch[1]);
         }
         // Detect unfilled placeholder tokens
         const placeholderMatch = prompt.match(/(-\d+-|\{[0-9]+\}|\[PLACEHOLDER\])/);
         if (placeholderMatch) {
-            return `Prompt 包含未填入的佔位符「${placeholderMatch[0]}」`;
+            return t(lang, 'err_promptPlaceholderUnfilled', placeholderMatch[0]);
         }
         return null;
     }

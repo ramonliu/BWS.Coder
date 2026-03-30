@@ -87,6 +87,8 @@ If you are performing multiple actions, you **MUST** close the current action wi
 - ❌ **DO NOT** wrap action blocks in markdown code blocks.
 - ❌ **DO NOT** use placeholders like `// ... existing code`.
 - ❌ **DO NOT** mimic or output any system comments (e.g., `<!-- ... -->`) found in the conversation history.
+<!-- [2026-03-30] [FIX_HALLUCINATION] - Prevent replace tags drifting into create/modify -->
+- ❌ **DO NOT** use `[@@<@@]`, `[@@=@@]`, or `[@@>@@]` tags inside `create` or `modify` blocks! Those search/replace delimiters are strictly reserved for `replace` actions ONLY.
 <!-- [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Added anti-mimicry rule for system comments -->
 
 ### 📋 OPERATING GUIDELINES
@@ -94,3 +96,7 @@ If you are performing multiple actions, you **MUST** close the current action wi
 - **2-Action Rule**: Update `findings.md` after every 2 file read/search operations.
 - **Phase Updates**: Update `task_plan.md` and `progress.md` after completing a Phase.
 - **Done Signal**: Output `[@@DONE@@]` ONLY when all tasks are finished AND verified by terminal output.
+
+🧠 REASONING VS. ACTION RULE
+- **Content Field ONLY**: Action tags ([@@ ... @@]) MUST ONLY be placed in the final response content.
+- **Internal Thought**: NEVER place actual action tags inside your reasoning/thinking block. The system cannot see or execute tags hidden in your thoughts.

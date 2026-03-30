@@ -70,6 +70,9 @@ export class ProviderManagerPanel {
                 case 'toggleProvider':
                     await this.toggleProvider(message.id, message.enabled);
                     break;
+                case 'resetApiKeyCD':
+                    await this.resetApiKeyCD(message.key);
+                    break;
             }
         });
 
@@ -135,6 +138,16 @@ export class ProviderManagerPanel {
         let providers = this.getProviders();
         providers = providers.map(p => p.id === id ? { ...p, enabled } : p);
         await this.saveProviders(providers);
+    }
+
+    private async resetApiKeyCD(key: string) {
+        const exhaustedKeys = this.context.globalState.get<{ [key: string]: number }>('exhaustedApiKeys', {}) || {};
+        if (exhaustedKeys[key]) {
+            delete exhaustedKeys[key];
+            await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
+            vscode.window.showInformationMessage(`🔄 已重置 API Key 的冷卻狀態。`);
+            this.sendProviders();
+        }
     }
 
     private getWebviewContent(): string {

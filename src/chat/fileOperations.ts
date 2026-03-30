@@ -237,6 +237,29 @@ export function formatFileOpResults(results: FileOpResult[]): string {
   return '\n\n---\n**📁 檔案操作結果：**\n' + lines.join('\n');
 }
 
+function truncateOutput(output: string, maxLines: number = 200, maxChars: number = 10000): string {
+  if (!output) return "(無輸出內容)";
+  
+  const lines = output.split(/\r?\n/);
+  // 如果字數跟行數都沒超標，直接回傳原內容
+  if (lines.length <= maxLines && output.length <= maxChars) {
+    return output;
+  }
+
+  const headCount = Math.floor(maxLines / 2);
+  const tailCount = maxLines - headCount;
+
+  if (lines.length > maxLines) {
+    const head = lines.slice(0, headCount).join('\n');
+    const tail = lines.slice(-tailCount).join('\n');
+    const skipped = lines.length - maxLines;
+    return `${head}\n\n[... (此處為節省 Token 空間，已省略中間約 ${skipped} 行日誌。完整內容請見 VS Code 輸出通道) ...]\n\n${tail}`;
+  } else {
+    // 雖然行數沒超，但單行字數過多造成總長超標時的處理
+    return output.substring(0, maxChars) + "\n\n[... (日誌字數過長，已截斷尾部 ...)]";
+  }
+}
+
 export function formatAutoReport(results: FileOpResult[]): string {
   if (!results || results.length === 0) return '';
   let successLines: string[] = [];
@@ -247,7 +270,9 @@ export function formatAutoReport(results: FileOpResult[]): string {
     } else if (r.action === 'read' && r.success) {
       lines.push(`📄 已讀取檔案 \`${r.filePath}\`，內容如下：\n\`\`\`\n${r.output || ''}\n\`\`\`\n`);
     } else if (r.action === 'execute') {
-      lines.push(`指令 \`${r.filePath}\` 執行${r.success ? '成功' : '失敗'}\n輸出內容：\n${r.output || r.error || '(無輸出)'}\n`);
+      // 套用日誌修剪優化
+      const prunedOutput = truncateOutput(r.output || r.error || '');
+      lines.push(`指令 \`${r.filePath}\` 執行${r.success ? '成功' : '失敗'}\n輸出內容：\n${prunedOutput}\n`);
     } else {
       lines.push(`❌ 操作 ${r.filePath} 失敗：${r.error}`);
     }

@@ -44,6 +44,9 @@ export class ProviderHtml {
         .empty-hint { text-align: center; padding: 40px; opacity: 0.5; font-style: italic; font-size: 12px; }
         .btn-delete-key { opacity: 0.5; cursor: pointer; padding: 5px; }
         .btn-delete-key:hover { opacity: 1; color: #d32f2f; }
+        .btn-reset-key { opacity: 0.8; cursor: pointer; padding: 5px; color: var(--vscode-charts-blue); font-size: 14px; display: none; }
+        .btn-reset-key.visible { display: inline-block; }
+        .btn-reset-key:hover { opacity: 1; filter: brightness(1.2); }
         .key-input.exhausted { color: #d32f2f; font-weight: bold; border-color: rgba(211, 47, 47, 0.4); background-color: rgba(211, 47, 47, 0.05); }
     </style>
 </head>
@@ -93,10 +96,19 @@ export class ProviderHtml {
             div.className = 'key-item';
             div.id = 'container_' + id;
             const extraClass = isExhausted ? ' exhausted' : '';
+            const showReset = isExhausted ? ' visible' : '';
             div.innerHTML = '<input type="text" id="' + id + '" value="' + val.replace(/"/g, '&quot;') + '" class="key-input' + extraClass + '" placeholder="輸入 API Key">' +
-                            '<span class="btn-delete-key" onclick="removeKeyField(\\'' + id + '\\')">✕</span>';
+                            '<span class="btn-reset-key' + showReset + '" onclick="resetKeyCD(\'' + id + '\')" title="重置 CD (恢復使用)">🔄</span>' +
+                            '<span class="btn-delete-key" onclick="removeKeyField(\'' + id + '\')">✕</span>';
             list.appendChild(div);
             div.querySelector('input').focus();
+        }
+
+        function resetKeyCD(id) {
+            const key = document.getElementById(id).value.trim();
+            if (key) {
+                vscode.postMessage({ command: 'resetApiKeyCD', key: key });
+            }
         }
 
         function removeKeyField(id) {

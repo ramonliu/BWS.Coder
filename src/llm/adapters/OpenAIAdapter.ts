@@ -67,8 +67,12 @@ export class OpenAIAdapter implements ILLMAdapter {
     extractResponse(json: any) {
         const res: { content?: string, thinking?: string } = {};
         if (json.choices?.[0]?.delta?.content) res.content = json.choices[0].delta.content;
+        
+        // 擷取各種廠牌或 Proxy 對應的 thinking 欄位
         if (json.choices?.[0]?.delta?.reasoning_content) res.thinking = json.choices[0].delta.reasoning_content;
         else if (json.choices?.[0]?.delta?.thinking) res.thinking = json.choices[0].delta.thinking;
+        else if (json.choices?.[0]?.delta?.reasoning) res.thinking = json.choices[0].delta.reasoning; // 支援 gpt-oss-120b
+        
         return res;
     }
 }

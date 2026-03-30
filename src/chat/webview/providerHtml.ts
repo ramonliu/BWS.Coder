@@ -44,9 +44,6 @@ export class ProviderHtml {
         .empty-hint { text-align: center; padding: 40px; opacity: 0.5; font-style: italic; font-size: 12px; }
         .btn-delete-key { opacity: 0.5; cursor: pointer; padding: 5px; }
         .btn-delete-key:hover { opacity: 1; color: #d32f2f; }
-        .btn-reset-key { opacity: 0.8; cursor: pointer; padding: 5px; color: var(--vscode-charts-blue); font-size: 14px; display: none; }
-        .btn-reset-key.visible { display: inline-block; }
-        .btn-reset-key:hover { opacity: 1; filter: brightness(1.2); }
         .key-input.exhausted { color: #d32f2f; font-weight: bold; border-color: rgba(211, 47, 47, 0.4); background-color: rgba(211, 47, 47, 0.05); }
     </style>
 </head>
@@ -63,7 +60,13 @@ export class ProviderHtml {
                 <div class="form-group"><label>模型名稱 (Model)</label><input type="text" id="model" placeholder="例如: gpt-4"></div>
                 <div class="form-group"><label>連接端點 (EndPoint)</label><input type="text" id="endpoint" placeholder="例如: http://localhost:11434"></div>
             </div>
-            <div class="form-group"><label>API Keys</label><div id="keyList" class="key-list"></div></div>
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px;">
+                    API Keys
+                    <span class="btn btn-mini btn-secondary" onclick="resetAllKeys()" style="cursor:pointer; font-weight:normal; opacity:0.8; height:18px; padding:2px 6px; font-size:11px;">🔄 全部重置 CD</span>
+                </label>
+                <div id="keyList" class="key-list"></div>
+            </div>
             <div style="margin-top:auto; padding-top:20px; display:flex; gap:12px; align-items:center; border-top: 1px solid var(--vscode-widget-border);">
                 <button class="btn btn-primary" onclick="submitForm()" id="submitBtn">新增 LLM</button>
                 <button class="btn btn-secondary" onclick="addKeyField()">+ 新增金鑰</button>
@@ -86,6 +89,15 @@ export class ProviderHtml {
                 currentProviders = event.data.providers;
                 currentExhaustedKeys = event.data.exhaustedKeys || {};
                 renderProviders(currentProviders);
+                // [2026-03-30] Fix CD Reset UI Feedback - Sync exhausted class for existing inputs
+                document.querySelectorAll('#keyList .key-input').forEach(input => {
+                    const isExhausted = !!currentExhaustedKeys[input.value.trim()];
+                    if (isExhausted) {
+                        input.classList.add('exhausted');
+                    } else {
+                        input.classList.remove('exhausted');
+                    }
+                });
             }
         });
 
@@ -96,18 +108,23 @@ export class ProviderHtml {
             div.className = 'key-item';
             div.id = 'container_' + id;
             const extraClass = isExhausted ? ' exhausted' : '';
-            const showReset = isExhausted ? ' visible' : '';
             div.innerHTML = '<input type="text" id="' + id + '" value="' + val.replace(/"/g, '&quot;') + '" class="key-input' + extraClass + '" placeholder="輸入 API Key">' +
-                            '<span class="btn-reset-key' + showReset + '" onclick="resetKeyCD(\\' + id + '\\')" title="重置 CD (恢復使用)">🔄</span>' +
-                            '<span class="btn-delete-key" onclick="removeKeyField(\\' + id + '\\')">✕</span>';
+                            '<span class="btn-delete-key" onclick="removeKeyField(&apos;' + id + '&apos;)">✕</span>';
             list.appendChild(div);
             div.querySelector('input').focus();
         }
 
-        function resetKeyCD(id) {
-            const key = document.getElementById(id).value.trim();
-            if (key) {
-                vscode.postMessage({ command: 'resetApiKeyCD', key: key });
+        // [2026-03-30] Fix CD Reset UI Feedback - Add optimistic UI update
+        function resetAllKeys() {
+            const keys = [];
+            document.querySelectorAll(\'#keyList input\').forEach(input => {
+                if (input.value.trim()) {
+                    keys.push(input.value.trim());
+                    input.classList.remove(\'exhausted\');
+                }
+            });
+            if (keys.length > 0) {
+                vscode.postMessage({ command: \'resetAllApiKeyCD\', keys: keys });
             }
         }
 

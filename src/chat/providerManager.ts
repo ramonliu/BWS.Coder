@@ -70,8 +70,8 @@ export class ProviderManagerPanel {
                 case 'toggleProvider':
                     await this.toggleProvider(message.id, message.enabled);
                     break;
-                case 'resetApiKeyCD':
-                    await this.resetApiKeyCD(message.key);
+                case 'resetAllApiKeyCD':
+                    await this.resetAllApiKeyCD(message.keys);
                     break;
             }
         });
@@ -140,12 +140,18 @@ export class ProviderManagerPanel {
         await this.saveProviders(providers);
     }
 
-    private async resetApiKeyCD(key: string) {
+    private async resetAllApiKeyCD(keys: string[]) {
         const exhaustedKeys = this.context.globalState.get<{ [key: string]: number }>('exhaustedApiKeys', {}) || {};
-        if (exhaustedKeys[key]) {
-            delete exhaustedKeys[key];
+        let changed = false;
+        for (const key of keys) {
+            if (exhaustedKeys[key]) {
+                delete exhaustedKeys[key];
+                changed = true;
+            }
+        }
+        if (changed) {
             await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
-            vscode.window.showInformationMessage(`🔄 已重置 API Key 的冷卻狀態。`);
+            vscode.window.showInformationMessage(`🔄 已重置該提供者所有金鑰的冷卻狀態。`);
             this.sendProviders();
         }
     }

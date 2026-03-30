@@ -1,5 +1,5 @@
 export class Styles {
-    public static get(): string {
+    public static get(lang?: string): string {
         return `
             * { box-sizing: border-box; margin: 0; padding: 0; }
             :root {

@@ -6,7 +6,7 @@ import { ChatMessage, FileOpRecord } from '../historyManager';
 import { TaskMonitor, TaskMonitorStatus } from '../taskMonitor';
 import { FileOpResult, createOrOverwriteFile, replaceFileContent, deleteFile, executeCommand, readFileAction } from '../fileOperations';
 import { Task, TaskState } from './Task';
-import { t } from '../../utils/locale';
+import { t, getLang } from '../../utils/locale';
 import { StreamingParser } from './StreamingParser';
 
 export abstract class ChatExecutor {
@@ -237,9 +237,9 @@ export abstract class ChatExecutor {
 
             // [2026-03-25] Narrative Step Completion Signal - Replace [@@DONE@@] with narrative text for history coherence.
             if (assistantMessage.content.includes('[@@DONE@@]')) {
-                assistantMessage.content = assistantMessage.content.replace('[@@DONE@@]', `(${taskName || 'AI'})已完成任務`);
+                assistantMessage.content = assistantMessage.content.replace('[@@DONE@@]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
             } else if (assistantMessage.content.includes('[DONE]')) {
-                assistantMessage.content = assistantMessage.content.replace('[DONE]', `(${taskName || 'AI'})已完成任務`);
+                assistantMessage.content = assistantMessage.content.replace('[DONE]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
             }
 
             state.updateWebview();
@@ -283,7 +283,7 @@ export abstract class ChatExecutor {
 
                 state.updateWebview();
                 const activeProviderIdStatus = providerId || client.getProviderId();
-                TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.REPORTING, client.isCloudProvider(), `正在回報 ${allResultsCount} 個執行結果...`, taskName);
+                TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.REPORTING, client.isCloudProvider(), t(getLang(), 'msg_reporting', allResultsCount), taskName);
                 state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
 
                 // 延遲一下讓使用者看到 REPORTING 狀態
@@ -330,7 +330,7 @@ export abstract class ChatExecutor {
             }
             
             // // [2026-03-29] [Fix-UI-Hang] - Append error to narrative and RE-THROW to break Runner loops
-            assistantMessage.content += `\n\n[執行錯誤]: ${errorMsg}`;
+            assistantMessage.content += `\n\n[${t(getLang(), 'msg_execError')}]: ${errorMsg}`;
             assistantMessage.isThinking = false;
             assistantMessage.isStreaming = false;
             
@@ -452,12 +452,13 @@ export abstract class ChatExecutor {
         const action = op.action;
         const content = (op.content || '').trim();
         const filePath = op.filePath || '';
+        const lang = getLang();
 
         // Case 1: AI tries to use terminal command (redirection) for file creation
         if (action === 'execute') {
             const redirectionRegex = />\s*.+|>>\s*.+|Set-Content|Out-File|Tee-Object\s+-FilePath/i;
             if (redirectionRegex.test(content)) {
-                return `❌ **協定違規 (Protocol Violation)**：偵測到您試圖透過 \`execute\` 指令來寫入檔案（包含重定向或 Set-Content）。\n本專案嚴禁使用終端機指令建檔，請改用標準的 \`create\` 或 \`modify\` 標籤。\n\n**正確範例**：\n[@@ create:${filePath || '路徑'} @@]\n(檔案內容)\n[@@ eof @@]`;
+                return t(lang, 'err_protocolViolation', filePath || 'path');
             }
 
             // [2026-03-30] Case 1b: AI uses Start-Process -Wait which causes PowerShell to hang
@@ -467,14 +468,14 @@ export abstract class ChatExecutor {
             if (startProcessWaitRegex.test(content)) {
                 // 嘗試從指令中提取 -FilePath 的值，以提供更精確的修正範例
                 const filePathMatch = content.match(/-FilePath\s+["']?([^"'\s,]+)["']?/i);
-                const exePath = filePathMatch ? filePathMatch[1] : '"路徑\\to\\executable.exe"';
-                return `❌ **指令格式錯誤 (Command Pattern Warning)**：偵測到您使用了 \`Start-Process -Wait\`。\n\n**問題原因**：\`Start-Process -Wait\` 會讓 PowerShell 在子程序結束後延遲回傳信號，導致 BWS.Coder 無法即時偵測程序退出，造成長時間無效等待。\n\n**正確做法**：請直接用 \`&\` 呼叫可執行檔，讓 PowerShell 自身等待其完成：\n\n\`\`\`powershell\n& ${exePath} -batchmode -quit -logFile -\n\`\`\`\n\n請修正指令後重試。`;
+                const exePath = filePathMatch ? filePathMatch[1] : '"/path/to/executable.exe"';
+                return t(lang, 'err_commandFormat', exePath);
             }
         }
 
         // Case 2: Content operations are empty
         if ((action === 'create' || action === 'modify' || action === 'replace') && !content) {
-            return `❌ **格式錯誤**：\`${action}\` 操作的內容區塊不能為空。如果您想刪除檔案，請改用 \`delete\`。\n\n**正確範例**：\n[@@ ${action}:${filePath || '路徑'} @@]\n(具體代碼)\n[@@ eof @@]`;
+            return t(lang, 'err_emptyContent', action, filePath || 'path');
         }
 
         // Case 3: Malformed replace block

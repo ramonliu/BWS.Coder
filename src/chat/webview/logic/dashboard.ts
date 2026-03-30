@@ -1,5 +1,5 @@
 export class Dashboard {
-    public static get(): string {
+    public static get(lang?: string): string {
         return `
             function toggleDashboard() {
                 const overlay = document.getElementById('dashboardOverlay');

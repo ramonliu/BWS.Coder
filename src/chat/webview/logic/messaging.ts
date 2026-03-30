@@ -1,5 +1,5 @@
 export class Messaging {
-    public static get(): string {
+    public static get(lang?: string): string {
         return `
             function smartSyncCore(eb, nb) {
                 // [2026-03-30] BUG-2 Fix - 移除手動補 expanded 的矛盾邏輯；展開狀態統一由 blockStates 管理

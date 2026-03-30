@@ -18,6 +18,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         return false;
     });
+
+    // Listen to language changes
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('bwsCoder.language')) {
+            const lang = vscode.workspace.getConfiguration('bwsCoder').get<string>('language') || 'en';
+            vscode.window.showInformationMessage(`BWS.Coder language changed to ${lang}. Please restart the Chat Panel to fully apply the language interface.`, 'OK');
+        }
+    }));
   }
 
   public resolveWebviewView(
@@ -73,8 +81,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getWebviewContent(): string {
+    const lang = vscode.workspace.getConfiguration('bwsCoder').get<string>('language') || 'en';
     return `<!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="${lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -82,10 +91,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     <style>${WebviewComponents.getStyles()}</style>
 </head>
 <body>
-    ${WebviewComponents.getToolbarHtml()}
-    ${WebviewComponents.getChatAreaHtml()}
-    ${WebviewComponents.getInputAreaHtml()}
-    <script>${WebviewComponents.getScripts()}</script>
+    ${WebviewComponents.getToolbarHtml(lang)}
+    ${WebviewComponents.getChatAreaHtml(lang)}
+    ${WebviewComponents.getInputAreaHtml(lang)}
+    <script>${WebviewComponents.getScripts(lang)}</script>
 </body>
 </html>`;
   }

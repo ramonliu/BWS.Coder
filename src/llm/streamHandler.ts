@@ -126,6 +126,13 @@ export async function* processStream(
                     const jsonStr = buffer.substring(0, end + 1);
                     try {
                         const json = JSON.parse(jsonStr);
+                        
+                        // [2026-03-30] Fix - OpenRouter 可能回傳 200 OK 但內容為 {"error": {"message": "..."}}
+                        if (json.error) {
+                            const errorMsg = typeof json.error === 'string' ? json.error : (json.error.message || JSON.stringify(json.error));
+                            throw new Error(`API 錯誤: ${errorMsg}`);
+                        }
+
                         const extracted = extractor(json);
                         
                         if (extracted.content || extracted.thinking) {
@@ -147,6 +154,10 @@ export async function* processStream(
                             }
                         }
                     } catch (e: any) {
+                        // 如果是我們自己拋出的 API 錯誤，往上拋出中斷串流
+                        if (e.message && e.message.startsWith('API 錯誤')) {
+                            throw e;
+                        }
                         console.error(`[${providerName}] JSON 解析失敗: ${e.message}.`);
                     }
                     buffer = buffer.substring(end + 1);

@@ -1,4 +1,5 @@
 import { Attachment } from './historyManager';
+import { t, getLang } from '../utils/locale';
 
 /**
  * Provides HTML templates for different message components using a unified block-based architecture.
@@ -76,7 +77,7 @@ export class MessageTemplates {
             role: 'user',
             typeClass: 'message user block-user',
             icon: this.ICONS.user,
-            title: '你',
+            title: t(getLang(), 'msg_you'),
             contentHtml: contentHtml + attachmentsHtml,
             isCollapsible: isCollapsible,
             collapsed: true, // 依照要求，預設摺疊 (CSS 會處理 2 行截斷)
@@ -112,10 +113,10 @@ export class MessageTemplates {
     }
 
     private static formatAssistantTitle(providerName?: string, taskName?: string): string {
-        if (taskName && taskName !== '新任務' && taskName !== 'SingleChat') {
+        if (taskName && taskName !== t(getLang(), 'wf_newTask') && taskName !== 'SingleChat') {
             return taskName + ' (' + providerName + ')';
         }
-        return providerName || 'AI 程式工程師';
+        return providerName || t(getLang(), 'msg_aiEngineer');
     }
 
     private static getProviderColor(name: string): { hue: number, accent: string } {
@@ -158,7 +159,7 @@ export class MessageTemplates {
             id: msgId,
             typeClass: 'block-task',
             icon: this.ICONS.thinking,
-            title: title || '任務執行計畫',
+            title: title || t(getLang(), 'msg_taskPlan'),
             contentHtml: contentHtml,
             isCollapsible: true,
             collapsed: false, // 任務面板預設展開以顯示進度
@@ -176,7 +177,7 @@ export class MessageTemplates {
         // isThinking === false 代表「思考完畢但正在說話」；
         // 若 !isGenerating 則串流已結束，一律為「思考完畢」。
         const showThinkingState = isGenerating === true && isThinking === true;
-        const status = showThinkingState ? '思考中...' : '思考完畢';
+        const status = showThinkingState ? t(getLang(), 'ui_thinking') : t(getLang(), 'ui_finishedThinking');
         
         const content = `<div class="thinking-text">${this.escapeHtml(thinking)}</div>`;
 
@@ -196,7 +197,7 @@ export class MessageTemplates {
 
     public static renderInitialLoader(): string {
         // [2026-03-30] Fix - 狀態文字對齊用戶要求：「預入中...」 = 送出 request 後至第一個 chunk 到來前
-        return `<div class="initial-loader"><span class="spin">${this.ICONS.funnel}</span> 預入中...</div>`;
+        return `<div class="initial-loader"><span class="spin">${this.ICONS.funnel}</span> ${t(getLang(), 'ui_loading')}</div>`;
     }
 
     // [2026-03-28] [UI State Render] - Added isSuccess and executionResult parameters
@@ -206,13 +207,13 @@ export class MessageTemplates {
             isPending = false;
         }
 
+        const lang = getLang();
         const labels: Record<string, string> = isPending ? {
-            create: '待建立', modify: '待修改', replace: '待局部修改', 'delete': '待刪除',
-            execute: '待執行', 'execute-status': '狀態', 'execute-result': '執行結果'
+            create: t(lang, 'op_createPending'), modify: t(lang, 'op_modifyPending'), replace: t(lang, 'op_replacePending'), 'delete': t(lang, 'op_deletePending'),
+            execute: t(lang, 'op_executePending'), 'execute-status': t(lang, 'op_executeStatus'), 'execute-result': t(lang, 'op_executeResult')
         } : {
-            create: '已建立', modify: '已修改', replace: '已局部修改', 'delete': '已刪除',
-            // [2026-03-24] UI Fix - Rename '執行' to '已執行' for clarity when finished
-            execute: '已執行', 'execute-status': '狀態', 'execute-result': '執行結果'
+            create: t(lang, 'op_created'), modify: t(lang, 'op_modified'), replace: t(lang, 'op_modified'), 'delete': t(lang, 'op_deleted'),
+            execute: t(lang, 'op_success'), 'execute-status': t(lang, 'op_executeStatus'), 'execute-result': t(lang, 'op_executeResult')
         };
 
         const actionIcons: Record<string, string> = {
@@ -247,11 +248,11 @@ export class MessageTemplates {
         let resultHtml = '';
         
         if (!isPending && executionResult !== undefined) {
-            const statusStr = isSuccess ? '成功' : '失敗';
+            const statusStr = isSuccess ? t(lang, 'op_success') : t(lang, 'op_failedStatus');
             const resultBoxClass = isSuccess ? 'success' : 'error';
             resultHtml = `
                 <div class="execution-result-box ${resultBoxClass}">
-                    <div class="result-header">↳ 回報 AI 執行結果 (${statusStr})</div>
+                    <div class="result-header">${t(lang, 'msg_reportResult')} (${statusStr})</div>
                     <div class="result-body"><pre><code>${this.escapeHtml(executionResult.trim())}</code></pre></div>
                 </div>
             `;
@@ -261,10 +262,10 @@ export class MessageTemplates {
                 cleanCode = cleanCode.substring(0, resultMatch.index).trim();
                 const statusStr = resultMatch[1];
                 const resultContent = resultMatch[2].trim();
-                const resultBoxClass = statusStr.includes('成功') ? 'success' : 'error';
+                const resultBoxClass = statusStr.includes('成功') || statusStr.includes('Success') ? 'success' : 'error';
                 resultHtml = `
                     <div class="execution-result-box ${resultBoxClass}">
-                        <div class="result-header">↳ 回報 AI 執行結果 (${statusStr})</div>
+                        <div class="result-header">${t(lang, 'msg_reportResult')} (${statusStr})</div>
                         <div class="result-body"><pre><code>${this.escapeHtml(resultContent)}</code></pre></div>
                     </div>
                 `;
@@ -336,8 +337,8 @@ export class MessageTemplates {
         const contentHtml = `
             <pre><code class="language-${lang}">${this.escapeHtml(trimmedCode)}</code></pre>
             <div class="code-actions">
-                <button class="code-btn" onclick="window.copyCode(decodeURIComponent('${encodedCode}'))">📋 複製</button>
-                <button class="code-btn" onclick="window.applyCode(decodeURIComponent('${encodedCode}'))">✨ 應用</button>
+                <button class="code-btn" onclick="window.copyCode(decodeURIComponent('${encodedCode}'))">📋 ${t(getLang(), 'msg_copy')}</button>
+                <button class="code-btn" onclick="window.applyCode(decodeURIComponent('${encodedCode}'))">✨ ${t(getLang(), 'msg_apply')}</button>
             </div>
         `;
 
@@ -356,11 +357,11 @@ export class MessageTemplates {
         });
     }
 
-    // [2026-03-30] Fix - 改用 renderBaseBlock 結構，確保 streaming 狀態也有 block-header（icon 行）
     public static renderStreamingLabel(action: string, path: string): string {
+        const lang = getLang();
         const labels: Record<string, string> = {
-            create: '待建檔...', modify: '待修改...', replace: '待局部修改...', 'delete': '待刪除...',
-            execute: '待執行...', read: '讀取中...', 'execute-status': '處理中...', 'execute-result': '結果傳回中...'
+            create: t(lang, 'op_createPending'), modify: t(lang, 'op_modifyPending'), replace: t(lang, 'op_replacePending'), 'delete': t(lang, 'op_deletePending'),
+            execute: t(lang, 'op_executePending'), read: t(lang, 'op_readPending'), 'execute-status': t(lang, 'msg_processing'), 'execute-result': t(lang, 'msg_returningResult')
         };
         const actionIcons: Record<string, string> = {
             create: this.ICONS.file, modify: this.ICONS.file, replace: this.ICONS.file,
@@ -414,8 +415,8 @@ export class MessageTemplates {
             id: msgId,
             typeClass: 'block-done success',
             icon: this.ICONS.success,
-            title: '🎉 任務已完成',
-            contentHtml: '<div class="done-text" style="font-size: 13px; opacity: 0.9;">所有作業已全數執行完畢。</div>',
+            title: t(getLang(), 'msg_taskDoneTitle'),
+            contentHtml: `<div class="done-text" style="font-size: 13px; opacity: 0.9;">${t(getLang(), 'msg_taskDoneBody')}</div>`,
             isCollapsible: false,
             collapsibleType: 'generic',
             subId: 'done'

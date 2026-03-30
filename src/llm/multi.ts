@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ILLMClient, LLMMessage } from './types';
 import { ProviderConfig } from '../chat/providerManager';
 import { UniversalLLMClient } from './UniversalLLMClient';
+import { t, getLang } from '../utils/locale';
 import { GeminiAdapter } from './adapters/GeminiAdapter';
 import { OpenAIAdapter } from './adapters/OpenAIAdapter';
 import { OllamaAdapter } from './adapters/OllamaAdapter';
@@ -150,16 +151,17 @@ export class MultiLLMClient implements ILLMClient {
         console.log(`[MultiLLM] 客戶端 ${clientIndex} (${client.getProviderName()}) Keys 已耗盡，跳過`);
         if (!autoFallback) {
           // [2026-03-30] UX Fix - 當備援沒打勾時，給出明確錯誤說明
-          throw new Error(`優先服務 **${client.getProviderName()}** 的 API Keys 已用完。\n因為您未開啟「自動切換備援 (Auto Fallback)」，已停止執行。\n提示：請至 Provider Manager 補充 Keys，或勾選以允許自動切換。`);
+          throw new Error(t(getLang(), 'err_fallbackExhausted', client.getProviderName()));
         }
         continue;
       }
 
       try {
-        if (i > 0 && switchCount === 0) {
-          // [2026-03-30] Fix - 通知文字改為清楚說明切換到哪個 Provider
+        if (i > 0) {
+          // [2026-03-30] Fix - 每次切換都清楚公告，避免 switchCount > 0 時靜默失敗
           const nextName = client.getProviderName();
-          yield { content: `\n\n> [BWS.Coder] API Keys 已用完，已自動切換至 **${nextName}**，繼續處理...\n\n` };
+          const actionMsg = switchCount === 0 ? t(getLang(), 'msg_switchingFallback') : t(getLang(), 'msg_fallbackFailed');
+          yield { content: `\n\n> [BWS.Coder] ${actionMsg} **${nextName}** ...\n\n` };
           switchCount++;
         }
 
@@ -175,10 +177,15 @@ export class MultiLLMClient implements ILLMClient {
       } catch (error: any) {
         lastError = error;
         console.error(`[MultiLLM] 客戶端 ${clientIndex} 錯誤:`, error);
+        
+        // [2026-03-30] 若錯誤包含被放棄的關鍵字，則一併記錄到對話
+        if (error.message) {
+             yield { content: `> ⚠️ **${client.getProviderName()}** ${t(getLang(), 'err_connectionFailed')}: ${error.message}\n\n` };
+        }
 
         // [2026-03-30] UX Fix - 當不允許自動換 LLM 時，附上原因拋出
         if (!autoFallback) {
-          throw new Error(`優先服務 **${client.getProviderName()}** 發生連線異常：${error.message || String(error)}\n因為您未開啟「自動切換備援 (Auto Fallback)」，已停止執行。`);
+          throw new Error(`${t(getLang(), 'err_fallbackExhausted', client.getProviderName())} (${error.message || String(error)})`);
         }
 
         if (i < clients.length - 1) {
@@ -187,7 +194,7 @@ export class MultiLLMClient implements ILLMClient {
         }
       }
     }
-    throw lastError || new Error('所有 AI 服務的 API Keys 皆已耗盡或無法連線，請至 Provider Manager 更新 Keys');
+    throw lastError || new Error(t(getLang(), 'err_allExhausted'));
   }
 
   async* generate(

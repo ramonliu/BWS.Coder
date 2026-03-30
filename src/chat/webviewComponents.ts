@@ -5,23 +5,23 @@ import { InputArea } from './webview/inputArea';
 import { Scripts } from './webview/scripts';
 
 export class WebviewComponents {
-    public static getStyles(): string {
-        return Styles.get();
+    public static getStyles(lang?: string): string {
+        return Styles.get(lang);
     }
 
-    public static getToolbarHtml(): string {
-        return Toolbar.getHtml();
+    public static getToolbarHtml(lang?: string): string {
+        return Toolbar.getHtml(lang);
     }
 
-    public static getChatAreaHtml(): string {
-        return ChatArea.getHtml();
+    public static getChatAreaHtml(lang?: string): string {
+        return ChatArea.getHtml(lang);
     }
 
-    public static getInputAreaHtml(): string {
-        return InputArea.getHtml();
+    public static getInputAreaHtml(lang?: string): string {
+        return InputArea.getHtml(lang);
     }
 
-    public static getScripts(): string {
-        return Scripts.get();
+    public static getScripts(lang?: string): string {
+        return Scripts.get(lang);
     }
 }

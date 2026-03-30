@@ -1,5 +1,5 @@
 export class EventHandlers {
-    public static get(): string {
+    public static get(lang?: string): string {
         return `
             window.addEventListener('message', function(e) {
                 var m = e.data;

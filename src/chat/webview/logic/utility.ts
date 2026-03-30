@@ -1,5 +1,5 @@
 export class Utility {
-    public static get(): string {
+    public static get(lang?: string): string {
         return `
             window.copyCode = function(c) { vscode.postMessage({command:'copy', text:c}); };
             window.applyCode = function(c) { vscode.postMessage({command:'applyCode', code:c}); };

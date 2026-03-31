@@ -79,7 +79,8 @@ export class SettingsManagerPanel {
         const properties = [
             'temperature', 'maxTokens', 'language', 'debugMode',
             'saveRawStream', 'saveAiRequest', 'groupChatMaxRounds',
-            'maxTurnsPerStep', 'heartbeatTimeout', 'autoFallback'
+            'maxTurnsPerStep', 'heartbeatTimeout', 'autoFallback',
+            'maxMemoryBudget'
         ];
         
         const tasks = properties.map(key => bwsConfig.update(key, undefined, target));
@@ -107,7 +108,8 @@ export class SettingsManagerPanel {
             groupChatMaxRounds: bwsConfig.get('groupChatMaxRounds', 0),
             maxTurnsPerStep: bwsConfig.get('maxTurnsPerStep', 30),
             heartbeatTimeout: bwsConfig.get('heartbeatTimeout', 30),
-            autoFallback: bwsConfig.get('autoFallback', false)
+            autoFallback: bwsConfig.get('autoFallback', false),
+            maxMemoryBudget: bwsConfig.get('maxMemoryBudget', 5000)
         };
         
         return SettingsHtml.getHtml(this.getI18nBundle(lang), config);
@@ -119,9 +121,11 @@ export class SettingsManagerPanel {
             'set_title', 'set_temperature', 'set_temperature_desc',
             'set_maxTokens', 'set_maxTokens_desc', 'set_language', 'set_language_desc',
             'set_debugMode', 'set_debugMode_desc', 'set_saveRawStream', 'set_saveRawStream_desc',
-            'set_saveAiRequest', 'set_saveAiRequest_desc', 'set_groupChatMaxRounds', 'set_groupChatMaxRounds_desc',
+            'set_groupChatMaxRounds', 'set_groupChatMaxRounds_desc',
             'set_maxTurnsPerStep', 'set_maxTurnsPerStep_desc', 'set_heartbeatTimeout', 'set_heartbeatTimeout_desc',
-            'set_autoFallback', 'set_autoFallback_desc', 'set_btnSave', 'set_btnReset'
+            'set_autoFallback', 'set_autoFallback_desc', 
+            'set_maxMemoryBudget', 'set_maxMemoryBudget_desc',
+            'set_btnSave', 'set_btnReset'
         ];
         keys.forEach(k => { bundle[k] = t(lang, k); });
         return bundle;

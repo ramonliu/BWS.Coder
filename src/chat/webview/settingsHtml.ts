@@ -159,6 +159,17 @@ export class SettingsHtml {
                 </div>
             </div>
 
+            <!-- Max Memory Budget -->
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name" id="set_maxMemoryBudget">${i18n.set_maxMemoryBudget}</div>
+                    <div class="setting-desc" id="set_maxMemoryBudget_desc">${i18n.set_maxMemoryBudget_desc}</div>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="maxMemoryBudget" value="${config.maxMemoryBudget}" min="1000">
+                </div>
+            </div>
+
             <!-- Auto Fallback -->
             <div class="setting-item">
                 <div class="setting-info">
@@ -211,6 +222,8 @@ export class SettingsHtml {
             document.getElementById('set_heartbeatTimeout_desc').textContent = i18n.set_heartbeatTimeout_desc;
             document.getElementById('set_autoFallback').textContent = i18n.set_autoFallback;
             document.getElementById('set_autoFallback_desc').textContent = i18n.set_autoFallback_desc;
+            document.getElementById('set_maxMemoryBudget').textContent = i18n.set_maxMemoryBudget;
+            document.getElementById('set_maxMemoryBudget_desc').textContent = i18n.set_maxMemoryBudget_desc;
             document.getElementById('btnSave').textContent = i18n.set_btnSave;
             document.getElementById('btnReset').textContent = i18n.set_btnReset;
         }
@@ -232,7 +245,8 @@ export class SettingsHtml {
                 groupChatMaxRounds: parseInt(document.getElementById('groupChatMaxRounds').value),
                 maxTurnsPerStep: parseInt(document.getElementById('maxTurnsPerStep').value),
                 heartbeatTimeout: parseInt(document.getElementById('heartbeatTimeout').value),
-                autoFallback: document.getElementById('autoFallback').checked
+                autoFallback: document.getElementById('autoFallback').checked,
+                maxMemoryBudget: parseInt(document.getElementById('maxMemoryBudget').value)
             };
             vscode.postMessage({ command: 'saveSettings', config, showNote });
         }

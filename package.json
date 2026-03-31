@@ -168,6 +168,12 @@
           "description": "Maximum conversation rounds per workflow step (prevents infinite loops). 0 for no limit, but safe value recommended.",
           "order": 11.1
         },
+        "bwsCoder.maxMemoryBudget": {
+          "type": "number",
+          "default": 5000,
+          "description": "Maximum character limit for the AI chat context window before dynamic compression kicks in.",
+          "order": 11.2
+        },
         "bwsCoder.heartbeatTimeout": {
           "type": "number",
           "default": 30,

@@ -237,6 +237,8 @@ export type LocaleStrings = {
     set_heartbeatTimeout_desc: string;
     set_autoFallback: string;
     set_autoFallback_desc: string;
+    set_maxMemoryBudget: string;
+    set_maxMemoryBudget_desc: string;
     set_btnSave: string;
     set_btnReset: string;
     set_msgSaved: string;
@@ -471,6 +473,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         set_heartbeatTimeout_desc: 'Local 模型會自動乘以 10 倍',
         set_autoFallback: '自動切換備援 LLM',
         set_autoFallback_desc: '主要 LLM 失敗時自動切換',
+        set_maxMemoryBudget: '對話記憶體預算 (總字元)',
+        set_maxMemoryBudget_desc: '控制對話總字數天花板，大於則觸發自動壓縮',
         set_btnSave: '儲存設定',
         set_btnReset: '重置為預設',
         set_msgSaved: '✅ 設定已儲存'
@@ -703,6 +707,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         set_heartbeatTimeout_desc: 'Local 模型会自动乘以 10 倍',
         set_autoFallback: '自动切换备援 LLM',
         set_autoFallback_desc: '主要 LLM 失败时自动切换',
+        set_maxMemoryBudget: '对话内存预算 (总字符)',
+        set_maxMemoryBudget_desc: '控制对话总字数天花板，大于则触发自动压缩',
         set_btnSave: '储存设置',
         set_btnReset: '重置为默认',
         set_msgSaved: '✅ 设置已储存'
@@ -935,6 +941,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         set_heartbeatTimeout_desc: 'Automatically multiplied by 10 for Local LLMs',
         set_autoFallback: 'Auto Fallback to Backup LLM',
         set_autoFallback_desc: 'Switch when primary LLM fails',
+        set_maxMemoryBudget: 'Max Memory Budget (Chars)',
+        set_maxMemoryBudget_desc: 'Max history characters before auto-compression',
         set_btnSave: 'Save Settings',
         set_btnReset: 'Reset to Defaults',
         set_msgSaved: '✅ Settings saved successfully'

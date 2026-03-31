@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { ChatMessage } from '../historyManager';
 import { getHasActionRegex, getPruneBlockRegex } from '../constants';
 
@@ -99,9 +100,12 @@ export class MemoryManager {
      * Returns a new array of messages for the LLM payload.
      */
     public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 2000): ChatMessage[] {
+        const config = vscode.workspace.getConfiguration('bwsCoder');
+        const maxTotalChars = config.get<number>('maxMemoryBudget') || 5000;
+
         const successes = this.getSuccessfulPaths(messages);
 
-        return messages
+        let processed = messages
             .filter(m => (m.content && m.content.trim().length > 0) || (m.attachments && m.attachments.length > 0))
             .map(m => {
             // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
@@ -144,5 +148,43 @@ export class MemoryManager {
 
             return { ...m, content };
         });
+
+        // [2026-04-01] Global Budget Limit - Compress lowest-weight messages if total exceeds maxTotalChars
+        let totalLength = processed.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+
+        if (totalLength > maxTotalChars) {
+            const compressible = processed
+                .map((m, originalIndex) => ({ m, originalIndex }))
+                .filter(({ m, originalIndex }) => {
+                    if (m.role === 'system') return false; // Never touch system prompts
+                    if (m.weight && m.weight >= 1.0) return false; // Skip protected high-weight user commands
+                    if (originalIndex >= processed.length - 2) return false; // Never touch the absolute latest interaction turn
+                    if (m.isPruned && m.pruneReason === 'global_budget_limit') return false; 
+                    return (m.content?.length || 0) > 50; 
+                });
+                
+            // Sort by importance primarily (lowest weight first), then age (older first)
+            compressible.sort((a, b) => {
+                const wA = a.m.weight || 0.5;
+                const wB = b.m.weight || 0.5;
+                if (wA !== wB) return wA - wB;
+                return a.originalIndex - b.originalIndex;
+            });
+            
+            for (const item of compressible) {
+                if (totalLength <= maxTotalChars) break;
+                
+                const { m } = item;
+                const originalLen = m.content?.length || 0;
+                const breadcrumb = `[歷史摘要: ${(m.role).toUpperCase()} 訊息已為了節省空間而歸檔 (原長度: ${originalLen} 字)]`;
+                m.content = breadcrumb;
+                m.isPruned = true;
+                m.pruneReason = 'global_budget_limit';
+                
+                totalLength -= (originalLen - breadcrumb.length);
+            }
+        }
+
+        return processed;
     }
 }

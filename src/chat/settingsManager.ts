@@ -121,7 +121,7 @@ export class SettingsManagerPanel {
             'set_title', 'set_temperature', 'set_temperature_desc',
             'set_maxTokens', 'set_maxTokens_desc', 'set_language', 'set_language_desc',
             'set_debugMode', 'set_debugMode_desc', 'set_saveRawStream', 'set_saveRawStream_desc',
-            'set_groupChatMaxRounds', 'set_groupChatMaxRounds_desc',
+            'set_saveAiRequest', 'set_saveAiRequest_desc', 'set_groupChatMaxRounds', 'set_groupChatMaxRounds_desc',
             'set_maxTurnsPerStep', 'set_maxTurnsPerStep_desc', 'set_heartbeatTimeout', 'set_heartbeatTimeout_desc',
             'set_autoFallback', 'set_autoFallback_desc', 
             'set_maxMemoryBudget', 'set_maxMemoryBudget_desc',

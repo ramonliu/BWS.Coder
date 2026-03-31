@@ -69,7 +69,7 @@ export class MemoryManager {
                     m.weight = 0.4;
                 }
             }
-            
+
             // Turn-based decay: messages older than 20 turns decay by 20%
             const age = messages.length - 1 - index;
             if (age > 20 && m.weight < 1.0) {
@@ -101,53 +101,53 @@ export class MemoryManager {
      */
     public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 2000): ChatMessage[] {
         const config = vscode.workspace.getConfiguration('bwsCoder');
-        const maxTotalChars = config.get<number>('maxMemoryBudget') || 5000;
+        const maxTotalChars = config.get<number>('maxMemoryBudget') || 10240;
 
         const successes = this.getSuccessfulPaths(messages);
 
         let processed = messages
             .filter(m => (m.content && m.content.trim().length > 0) || (m.attachments && m.attachments.length > 0))
             .map(m => {
-            // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
-            let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m) : m.content;
+                // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
+                let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m) : m.content;
 
-            // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the `[@@ ... @@]` syntax in history. 
-            // If we completely remove the tags and replace with `[System Note...]`, the AI assumes it should output `[System Note...]` in the future instead of real tags.
-            if (m.role === 'assistant' && content.includes('[@@')) {
-                content = content.replace(getPruneBlockRegex(), (match, action, path, code) => {
-                    const cleanPath = path.trim();
-                    // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)
-                    if (successes.has(cleanPath)) {
-                        return '';
-                    }
-                    return match;
-                });
-            }
-
-            // Never prune high-weight messages (User instructions / System prompt)
-            if (m.weight && m.weight >= 1.0) return { ...m, content };
-
-            // If content is very long and weight is low, summarize it
-            if (content.length > maxCharsPerMessage) {
-                const weight = m.weight || 0.5;
-                
-                // Summarization depth depends on weight
-                if (weight < 0.5) {
-                    // Deep compression
-                    const summary = `[Compressed: ${m.role} message (${content.length} chars, weight ${weight.toFixed(1)}) - Content hidden to save context]`;
-                    return { ...m, content: summary, isPruned: true, pruneReason: 'low_weight_compression' };
-                } else if (weight < 0.9) {
-                    // Partial compression: Keep start and end
-                    const keep = Math.floor(maxCharsPerMessage / 2);
-                    const head = content.slice(0, keep);
-                    const tail = content.slice(-keep);
-                    const summary = `${head}\n\n... (Pruned ${content.length - maxCharsPerMessage} chars for efficiency) ...\n\n${tail}`;
-                    return { ...m, content: summary, isPruned: true, pruneReason: 'length_limit' };
+                // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the `[@@ ... @@]` syntax in history. 
+                // If we completely remove the tags and replace with `[System Note...]`, the AI assumes it should output `[System Note...]` in the future instead of real tags.
+                if (m.role === 'assistant' && content.includes('[@@')) {
+                    content = content.replace(getPruneBlockRegex(), (match, action, path, code) => {
+                        const cleanPath = path.trim();
+                        // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)
+                        if (successes.has(cleanPath)) {
+                            return '';
+                        }
+                        return match;
+                    });
                 }
-            }
 
-            return { ...m, content };
-        });
+                // Never prune high-weight messages (User instructions / System prompt)
+                if (m.weight && m.weight >= 1.0) return { ...m, content };
+
+                // If content is very long and weight is low, summarize it
+                if (content.length > maxCharsPerMessage) {
+                    const weight = m.weight || 0.5;
+
+                    // Summarization depth depends on weight
+                    if (weight < 0.5) {
+                        // Deep compression
+                        const summary = `[Compressed: ${m.role} message (${content.length} chars, weight ${weight.toFixed(1)}) - Content hidden to save context]`;
+                        return { ...m, content: summary, isPruned: true, pruneReason: 'low_weight_compression' };
+                    } else if (weight < 0.9) {
+                        // Partial compression: Keep start and end
+                        const keep = Math.floor(maxCharsPerMessage / 2);
+                        const head = content.slice(0, keep);
+                        const tail = content.slice(-keep);
+                        const summary = `${head}\n\n... (Pruned ${content.length - maxCharsPerMessage} chars for efficiency) ...\n\n${tail}`;
+                        return { ...m, content: summary, isPruned: true, pruneReason: 'length_limit' };
+                    }
+                }
+
+                return { ...m, content };
+            });
 
         // [2026-04-01] Global Budget Limit - Compress lowest-weight messages if total exceeds maxTotalChars
         let totalLength = processed.reduce((sum, m) => sum + (m.content?.length || 0), 0);
@@ -159,10 +159,10 @@ export class MemoryManager {
                     if (m.role === 'system') return false; // Never touch system prompts
                     if (m.weight && m.weight >= 1.0) return false; // Skip protected high-weight user commands
                     if (originalIndex >= processed.length - 2) return false; // Never touch the absolute latest interaction turn
-                    if (m.isPruned && m.pruneReason === 'global_budget_limit') return false; 
-                    return (m.content?.length || 0) > 50; 
+                    if (m.isPruned && m.pruneReason === 'global_budget_limit') return false;
+                    return (m.content?.length || 0) > 50;
                 });
-                
+
             // Sort by importance primarily (lowest weight first), then age (older first)
             compressible.sort((a, b) => {
                 const wA = a.m.weight || 0.5;
@@ -170,17 +170,17 @@ export class MemoryManager {
                 if (wA !== wB) return wA - wB;
                 return a.originalIndex - b.originalIndex;
             });
-            
+
             for (const item of compressible) {
                 if (totalLength <= maxTotalChars) break;
-                
+
                 const { m } = item;
                 const originalLen = m.content?.length || 0;
                 const breadcrumb = `[歷史摘要: ${(m.role).toUpperCase()} 訊息已為了節省空間而歸檔 (原長度: ${originalLen} 字)]`;
                 m.content = breadcrumb;
                 m.isPruned = true;
                 m.pruneReason = 'global_budget_limit';
-                
+
                 totalLength -= (originalLen - breadcrumb.length);
             }
         }

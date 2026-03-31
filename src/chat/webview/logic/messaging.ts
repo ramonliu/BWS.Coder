@@ -168,6 +168,13 @@ export class Messaging {
                         smartSync(d, tempWrapper);
                     }
 
+                    // [2026-03-31] Fix: Hide completely empty message bubbles (e.g., hidden Auto-Reports or Execution Results)
+                    if (!m.html || m.html.trim() === '') {
+                        d.style.display = 'none';
+                    } else if (d.style.display === 'none') {
+                        d.style.display = '';
+                    }
+
                     // 更新快取
                     if (typeof htmlCache !== 'undefined') htmlCache[m.id] = m.html;
 

@@ -4,12 +4,9 @@ import { stripMarkdownCodeBlocks } from '../fileOperations';
 
 type ParserState = 'TEXT' | 'TAG' | 'CONTENT' | 'XML_HEADER' | 'XML_CONTENT' | 'XML_FOOTER';
 
-// [2026-03-30] [XML-ToolCall] - Add support for XML tool_calls
-// e.g., <tool_call><function=...><parameter=path>...</parameter>...
-
 /**
  * StreamingParser - A robust state-machine based scanner for AI output streams.
- * [2026-03-30] [Parser-Refactor-StateMachine] - Replaced Regex with scanner to avoid bracket issues (like [math]).
+ * [2026-03-31] [Parser-Behavior-Driven] - Refactored to trigger on [@@ then check behavior (action).
  */
 export class StreamingParser {
     private blocks: MessageBlock[] = [];
@@ -26,9 +23,6 @@ export class StreamingParser {
         return this.blocks;
     }
 
-    /**
-     * Feed a network stream chunk into the parser.
-     */
     public pushChunk(chunk: string): MessageBlock[] {
         this.buffer += chunk;
         const readyOps: MessageBlock[] = [];
@@ -36,27 +30,19 @@ export class StreamingParser {
         return readyOps;
     }
 
-    /**
-     * Call this when the stream entirely finishes to flush the remaining buffer.
-     */
     public close(): MessageBlock[] {
         const readyOps: MessageBlock[] = [];
-        
-        // Handle remaining buffer at EOF
         if (this.buffer) {
             if (this.state === 'TEXT' || this.state === 'XML_FOOTER') {
                 if (this.state === 'TEXT') this.appendToSpeak(this.buffer);
             } else if (this.state === 'TAG') {
-                // AI stopped mid-tag? Try process what we have
-                this.processFullTag(this.buffer, readyOps, true);
+                this.processFullTag(this.buffer, readyOps);
             } else if (this.state === 'CONTENT' || this.state === 'XML_CONTENT') {
-                // AI stopped without eof? Force close
                 this.currentActionBlock!.content += this.buffer;
             }
             this.buffer = '';
         }
 
-        // Final cleanup of open action blocks
         if ((this.state === 'CONTENT' || this.state === 'XML_CONTENT') && this.currentActionBlock) {
             this.currentActionBlock.content = stripMarkdownCodeBlocks(this.currentActionBlock.content || '');
             this.currentActionBlock.isClosed = true;
@@ -64,15 +50,17 @@ export class StreamingParser {
             this.currentActionBlock = null;
             this.state = 'TEXT';
         }
-
         return readyOps;
     }
 
     private scan(readyOps: MessageBlock[]) {
+        const validActions = FILE_OP_ACTIONS.split('|');
+
         while (this.buffer.length > 0) {
             if (this.state === 'TEXT') {
                 const tagStartIndex = this.buffer.indexOf('[@@');
-                const xmlStartIndex = this.buffer.indexOf('<tool_call>');
+                const xmlMatch = this.buffer.match(/<(?:[a-z0-9_-]+:)?tool_call>/i);
+                const xmlStartIndex = xmlMatch ? xmlMatch.index! : -1;
 
                 let foundMatch = false;
                 let isXml = false;
@@ -92,12 +80,11 @@ export class StreamingParser {
                 }
 
                 if (!foundMatch) {
-                    // Only hold back if the buffer ends with a potential tag start
                     const lastOpenBracket = this.buffer.lastIndexOf('[');
                     const lastAngleBracket = this.buffer.lastIndexOf('<');
                     let holdBack = 0;
                     if (lastOpenBracket !== -1 && this.buffer.length - lastOpenBracket < 5) holdBack = this.buffer.length - lastOpenBracket;
-                    if (lastAngleBracket !== -1 && this.buffer.length - lastAngleBracket < 15) holdBack = Math.max(holdBack, this.buffer.length - lastAngleBracket);
+                    if (lastAngleBracket !== -1 && this.buffer.length - lastAngleBracket < 30) holdBack = Math.max(holdBack, this.buffer.length - lastAngleBracket);
                     
                     const flushLength = this.buffer.length - holdBack;
                     if (flushLength > 0) {
@@ -106,27 +93,50 @@ export class StreamingParser {
                     }
                     break;
                 } else {
-                    // Flush text before tag
-                    this.appendToSpeak(this.buffer.substring(0, startIndex));
-                    this.buffer = this.buffer.substring(startIndex + (isXml ? 11 : 3)); // 11 for <tool_call>, 3 for [@@
-                    this.state = isXml ? 'XML_HEADER' : 'TAG';
+                    if (!isXml) {
+                        // Action-Strict Check
+                        const afterTag = this.buffer.substring(startIndex + 3).trimStart().toLowerCase();
+                        // wait for enough data to identify behavior
+                        if (afterTag.length < 10 && !afterTag.includes('@@')) {
+                            this.appendToSpeak(this.buffer.substring(0, startIndex));
+                            this.buffer = this.buffer.substring(startIndex);
+                            break; 
+                        }
+
+                        const behaviorMatch = afterTag.match(/^([a-z-]+)\s*(:|\{|\@\@)/i);
+                        if (behaviorMatch) {
+                            const actionName = behaviorMatch[1];
+                            if (validActions.includes(actionName) || actionName === 'eof') {
+                                this.appendToSpeak(this.buffer.substring(0, startIndex));
+                                this.buffer = this.buffer.substring(startIndex + 3);
+                                this.state = 'TAG';
+                                continue;
+                            }
+                        }
+                        // Not a command behavior, treat as text
+                        this.appendToSpeak(this.buffer.substring(0, startIndex + 3));
+                        this.buffer = this.buffer.substring(startIndex + 3);
+                    } else {
+                        this.appendToSpeak(this.buffer.substring(0, startIndex));
+                        this.buffer = this.buffer.substring(startIndex + xmlMatch![0].length);
+                        this.state = 'XML_HEADER';
+                    }
                 }
             } else if (this.state === 'TAG') {
-                const tagEndIndex = this.buffer.indexOf('@@', 3); // skips starting '@@' if any
+                const tagEndIndex = this.buffer.indexOf('@@'); 
                 if (tagEndIndex === -1) {
-                    // Tag might be very long or contain brackets.
-                    if (this.buffer.length > 1000 || (this.buffer.includes('\n') && this.buffer.length > 500)) {
-                        this.appendToSpeak(this.buffer);
+                    if (this.buffer.length > 500) {
+                        this.appendToSpeak('[@@' + this.buffer);
                         this.buffer = '';
                         this.state = 'TEXT';
                     }
-                    break; // Wait for more data
+                    break; 
                 } else {
                     let consumeLen = 2;
                     if (this.buffer.length > tagEndIndex + 2 && this.buffer[tagEndIndex + 2] === ']') {
                         consumeLen = 3;
                     }
-                    const tagFull = this.buffer.substring(0, tagEndIndex + consumeLen);
+                    const tagFull = this.buffer.substring(0, tagEndIndex);
                     this.buffer = this.buffer.substring(tagEndIndex + consumeLen);
                     this.processFullTag(tagFull, readyOps);
                 }
@@ -159,17 +169,15 @@ export class StreamingParser {
                     break;
                 }
             } else if (this.state === 'XML_HEADER') {
-                const match = this.buffer.match(/<\/parameter>\s*(?:<\/function>|<parameter(?:=| name=")content"?\s*>)/i);
+                const match = this.buffer.match(/<\/parameter>\s*(?:<\/(?:function|invoke)>|<parameter(?:=| name=")(?:content|text)"?\s*>)/i);
                 if (match) {
                     const headerStr = this.buffer.substring(0, match.index! + match[0].length);
-                    const actionMatch = headerStr.match(/<function(?:=| name=")([^>"]+)/i);
-                    const pathMatch = headerStr.match(/<parameter(?:=| name=")path"?>(.*?)<\/parameter>/si);
+                    const actionMatch = headerStr.match(/<(?:function|invoke)(?:=| name=")([^>"]+)/i);
+                    const pathMatch = headerStr.match(/<parameter(?:=| name=")(?:path|commandline|command)"?>(.*?)<\/parameter>/si);
                     
                     if (actionMatch && pathMatch) {
                         const action = actionMatch[1].trim().toLowerCase();
                         const filePath = pathMatch[1].trim();
-                        const validActions = FILE_OP_ACTIONS.split('|');
-                        
                         if (validActions.includes(action)) {
                             this.currentActionBlock = {
                                 id: this.generateId(),
@@ -181,7 +189,6 @@ export class StreamingParser {
                                 isClosed: (action === 'read' || action === 'execute' || action === 'delete')
                             };
                             this.blocks.push(this.currentActionBlock);
-                            
                             this.buffer = this.buffer.substring(match.index! + match[0].length);
                             if (this.currentActionBlock.isClosed) {
                                 readyOps.push(this.currentActionBlock);
@@ -192,7 +199,6 @@ export class StreamingParser {
                             continue;
                         }
                     }
-                    // Invalid XML action or path, discard
                     this.appendToSpeak(headerStr);
                     this.buffer = this.buffer.substring(match.index! + match[0].length);
                     this.state = 'TEXT';
@@ -212,7 +218,6 @@ export class StreamingParser {
                     this.currentActionBlock!.content = stripMarkdownCodeBlocks(this.currentActionBlock!.content || '');
                     this.currentActionBlock!.isClosed = true;
                     readyOps.push(this.currentActionBlock!);
-                    
                     this.buffer = this.buffer.substring(matchIndex + match[0].length);
                     this.currentActionBlock = null;
                     this.state = 'XML_FOOTER';
@@ -227,7 +232,7 @@ export class StreamingParser {
                     break;
                 }
             } else if (this.state === 'XML_FOOTER') {
-                const match = this.buffer.match(/<\/tool_call>/i);
+                const match = this.buffer.match(/<\/(?:[a-z0-9_-]+:)?tool_call>/i);
                 if (match) {
                     this.buffer = this.buffer.substring(match.index! + match[0].length);
                     this.state = 'TEXT';
@@ -241,34 +246,34 @@ export class StreamingParser {
         }
     }
 
-    private processFullTag(rawTag: string, readyOps: MessageBlock[], isFinal: boolean = false) {
-        // Strip [@@ and @@] or @@
-        let inner = rawTag.trim();
-        if (inner.startsWith('[@@')) inner = inner.substring(3);
-        if (inner.endsWith('@@]')) inner = inner.substring(0, inner.length - 3);
-        else if (inner.endsWith('@@')) inner = inner.substring(0, inner.length - 2);
+    private processFullTag(inner: string, readyOps: MessageBlock[]) {
+        const trimmed = inner.trim().toLowerCase();
+        
+        // Handle EOF behavior first
+        if (trimmed === 'eof' && this.currentActionBlock) {
+            this.currentActionBlock.isClosed = true;
+            readyOps.push(this.currentActionBlock);
+            this.currentActionBlock = null;
+            this.state = 'TEXT';
+            return;
+        }
 
-        // Find first colon to split action and path
         const colonIndex = inner.indexOf(':');
         if (colonIndex === -1) {
-            // Not a valid tag format, revert to text
-            this.appendToSpeak(rawTag);
+            this.appendToSpeak('[@@' + inner + '@@]');
             this.state = 'TEXT';
             return;
         }
 
         let action = inner.substring(0, colonIndex).trim().toLowerCase();
-        // [2026-03-30] [Parser-Metadata-Support] - Handle optional metadata in curly braces (e.g. execute{Out-String}: ...)
         if (action.includes('{')) {
             action = action.split('{')[0].trim();
         }
-
         const filePath = inner.substring(colonIndex + 1).trim();
-
-        // Validate action
         const validActions = FILE_OP_ACTIONS.split('|');
+
         if (!validActions.includes(action)) {
-            this.appendToSpeak(rawTag);
+            this.appendToSpeak('[@@' + inner + '@@]');
             this.state = 'TEXT';
             return;
         }

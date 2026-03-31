@@ -176,10 +176,11 @@ export class Styles {
             }
             .block-header[onclick]:hover { background: rgba(255,255,255,0.06); border-radius: 16px 16px 0 0; }
             .block-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
-            .block-title { font-weight: 600; font-size: 12px; letter-spacing: 0.2px; }
+            .block-title { font-weight: 600; font-size: 12px; letter-spacing: 0.2px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             
             /* // 2026-03-23 UI Fix - code blocks should be collapsed by default */
             .block-content { padding: 14px 18px; font-size: 13.5px; line-height: 1.6; }
+            /* Default: collapsed blocks hide content entirely */
             .block-container.collapsible:not(.expanded) .block-content { display: none; }
             
             /* // 2026-03-23 Fix User Message Truncation - Prevent display: none from hiding text completely */

@@ -950,7 +950,7 @@ export function t(lang: string | undefined, key: keyof LocaleStrings, ...args: (
     let text = locales[resolvedLang][key] || key;
     if (args.length > 0) {
         args.forEach((arg, i) => {
-            text = text.replace(`{${i}}`, String(arg));
+            text = text.split(`{${i}}`).join(String(arg));
         });
     }
     return text;

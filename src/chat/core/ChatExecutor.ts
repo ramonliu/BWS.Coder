@@ -456,20 +456,49 @@ export abstract class ChatExecutor {
 
         // Case 1: AI tries to use terminal command (redirection) for file creation
         if (action === 'execute') {
-            const redirectionRegex = />\s*.+|>>\s*.+|Set-Content|Out-File|Tee-Object\s+-FilePath/i;
-            if (redirectionRegex.test(content)) {
+            const lc = content.toLowerCase();
+            const hasRedirection = lc.includes('>') || lc.includes('>>') || 
+                                 lc.includes('set-content') || lc.includes('out-file') || 
+                                 lc.includes('tee-object');
+            
+            if (hasRedirection) {
                 return t(lang, 'err_protocolViolation', filePath || 'path');
             }
 
-            // [2026-03-30] Case 1b: AI uses Start-Process -Wait which causes PowerShell to hang
-            // When Unity/process exits, PowerShell's -Wait may not propagate the exit signal promptly,
-            // causing BWS.Coder to wait for the silent-timeout (up to 60 min for heavy tasks).
-            const startProcessWaitRegex = /Start-Process\b.*-Wait\b/i;
-            if (startProcessWaitRegex.test(content)) {
-                // 嘗試從指令中提取 -FilePath 的值，以提供更精確的修正範例
-                const filePathMatch = content.match(/-FilePath\s+["']?([^"'\s,]+)["']?/i);
-                const exePath = filePathMatch ? filePathMatch[1] : '"/path/to/executable.exe"';
-                return t(lang, 'err_commandFormat', exePath);
+            // [2026-03-31] Completely replaced Regex with robust string-based detection
+            const lowerContent = content.toLowerCase();
+            const spIdx = lowerContent.indexOf('start-process');
+            if (spIdx !== -1) {
+                const waitIdx = lowerContent.indexOf('-wait', spIdx);
+                if (waitIdx !== -1) {
+                    // Extract FilePath manually without Regex
+                    let exePath = '"/path/to/executable.exe"';
+                    const fpIdx = lowerContent.indexOf('-filepath', spIdx);
+                    if (fpIdx !== -1) {
+                        const afterFp = content.substring(fpIdx + 9).trim(); // Skip '-filepath'
+                        if (afterFp.length > 0) {
+                            if (afterFp.startsWith('"') || afterFp.startsWith("'")) {
+                                const quote = afterFp[0];
+                                const endIdx = afterFp.indexOf(quote, 1);
+                                if (endIdx !== -1) {
+                                    exePath = afterFp.substring(0, endIdx + 1);
+                                }
+                            } else {
+                                // Find the first whitespace character manually
+                                let spaceIdx = -1;
+                                for (let i = 0; i < afterFp.length; i++) {
+                                    const char = afterFp[i];
+                                    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+                                        spaceIdx = i;
+                                        break;
+                                    }
+                                }
+                                exePath = (spaceIdx === -1) ? afterFp : afterFp.substring(0, spaceIdx);
+                            }
+                        }
+                    }
+                    return t(lang, 'err_commandFormat', exePath);
+                }
             }
         }
 
@@ -483,7 +512,7 @@ export abstract class ChatExecutor {
             const hasStart = content.includes('[@@<@@]');
             const hasDivider = content.includes('[@@=@@]');
             if (!hasStart || !hasDivider) {
-                return `❌ **格式錯誤**：\`replace\` 區塊必須包含完整的 \`[@@<@@]\` (舊代碼) 與 \`[@@=@@]\` (分隔符) 標籤。\n\n**正確範例**：\n[@@ replace:${filePath || '路徑'} @@]\n[@@<@@]\n(待替換的原始段落)\n[@@=@@]\n(替換後的目標段落)\n[@@>@@]\n[@@ eof @@]`;
+                return t(lang, 'err_replaceFormat', filePath || (lang === 'en' ? 'path' : '路徑'));
             }
         }
 

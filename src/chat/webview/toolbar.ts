@@ -21,7 +21,6 @@ export class Toolbar {
 
                 <div style="flex:1"></div>
 
-                <button class="toolbar-btn" onclick="vscode.postMessage({command:'openLogPanel'})" title="${t(lang, 'ui_logTooltip')}"><svg viewBox="0 0 16 16"><path d="M11 1H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4zM3 14V2h7v3h3v9zM11 6H5v1h6zm0 2H5v1h6zm0 2H5v1h6z"/></svg></button>
                 <button class="toolbar-btn" id="historyToggle" onclick="window.toggleHistory()" title="${t(lang, 'ui_historyTooltip')}"><svg viewBox="0 0 16 16"><path d="M8.5 2c-1.8 0-3.4.7-4.6 1.9L2.8 2.8C2.5 2.5 2 2.7 2 3.2V7c0 .6.4 1 1 1h3.8c.5 0 .7-.5.3-.8L5.7 5.7C6.4 5 7.4 4.5 8.5 4.5c2.5 0 4.5 2 4.5 4.5s-2 4.5-4.5 4.5c-1 0-2-.4-2.8-1-.4-.3-.9-.2-1.2.2-.3.4-.2.9.1 1.2 1.1.9 2.4 1.4 3.9 1.4 3.6 0 6.5-2.9 6.5-6.5S12.1 2 8.5 2z"/></svg></button>
                 <button class="toolbar-btn" onclick="window.startNewChat()" title="${t(lang, 'ui_newChatTooltip')}"><svg viewBox="0 0 16 16"><path d="M14 7H9V2H7v5H2v2h5v5h2V9h5V7z"/></svg></button>
                 <button class="toolbar-btn" onclick="window.sendHandover()" title="${t(lang, 'ui_handoverTooltip')}"><svg viewBox="0 0 16 16"><path d="M13.8 3l-1.6-1.6V1.4c0-.2-.1-.3-.2-.4H2.5c-.3 0-.5.2-.5.5v12.5c0 .3.2.5.5.5h11c.3 0 .5-.2.5-.5V3.4c0-.2-.1-.3-.2-.4zM8 13c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3-8H3V3h8v2z"/></svg></button>

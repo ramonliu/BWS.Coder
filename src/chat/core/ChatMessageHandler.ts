@@ -24,7 +24,14 @@ export class ChatMessageHandler {
     public async handleMessage(message: any, service: any): Promise<void> {
         switch (message.command) {
             case 'send': await this.handleUserMessage(message.text, service, message.attachments, message.chatMode); break;
-            case 'stop': if (service.globalCts) service.globalCts.cancel(); if (service.streamCts) service.streamCts.cancel(); service.isGenerating = false; service.updateWebview(); break;
+            case 'stop': 
+                if (service.globalCts) service.globalCts.cancel(); 
+                if (service.streamCts) service.streamCts.cancel(); 
+                service.isGenerating = false; 
+                // [2026-03-31] UX Fix - Force clear streaming flags on messages to immediately hide the breathing border
+                service.messages.forEach((m: any) => { if (m.role === 'assistant') { m.isStreaming = false; m.isThinking = false; } });
+                service.updateWebview(); 
+                break;
             case 'clear': service.messages = []; service.currentSessionId = service.generateId(); this.historyManager.saveSession(service.currentSessionId, service.messages); service.updateWebview(); break;
             case 'copy': await vscode.env.clipboard.writeText(message.text); break;
             case 'applyCode': await service.applyCodeToEditor(message.code); break;

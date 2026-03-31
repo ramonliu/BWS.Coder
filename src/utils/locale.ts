@@ -47,6 +47,7 @@ export type LocaleStrings = {
     ui_handoverTooltip: string;
     ui_logTooltip: string;
     ui_input_instruction: string;
+    ui_continueHint: string;
 
     // Messages
     msg_you: string;
@@ -286,6 +287,7 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_handoverTooltip: '儲存交接文件 (Handover)',
         ui_logTooltip: '查看 AI 原始日誌',
         ui_input_instruction: '按 Shift+Enter 換行, Enter 發送',
+        ui_continueHint: '繼續 (Continue)',
 
         msg_you: '你',
         msg_aiEngineer: 'AI 程式工程師',
@@ -517,6 +519,7 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_handoverTooltip: '储存交接文档 (Handover)',
         ui_logTooltip: '查看 AI 原始日志',
         ui_input_instruction: '按 Shift+Enter 换行, Enter 发送',
+        ui_continueHint: '继续 (Continue)',
 
         msg_you: '你',
         msg_aiEngineer: 'AI 程序员',
@@ -748,6 +751,7 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         ui_handoverTooltip: 'Save Handover',
         ui_logTooltip: 'View AI Logs',
         ui_input_instruction: 'Shift+Enter for newline, Enter to send',
+        ui_continueHint: 'Continue',
 
         msg_you: 'You',
         msg_aiEngineer: 'AI Engineer',

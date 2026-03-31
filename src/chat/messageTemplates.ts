@@ -48,8 +48,7 @@ export class MessageTemplates {
         const collapsibleClass = props.isCollapsible ? 'collapsible' : '';
         const expandedClass = (props.isCollapsible && props.collapsed === false) ? 'expanded' : '';
         const activeClass = props.isThinking ? 'active' : '';
-        const encodedSubId = props.subId ? this.escapeHtml(props.subId).replace(/'/g, "\\'") : '';
-        const onclick = props.isCollapsible ? `onclick="window.toggleBlock(event, this, '${props.collapsibleType || 'generic'}', '${encodedSubId}')"` : '';
+        const onclick = props.isCollapsible ? `onclick="window.toggleBlock(event, this)"` : '';
 
         return `
             <div class="block-container ${props.typeClass} ${collapsibleClass} ${expandedClass}" ${idAttr} ${typeAttr} ${subIdAttr} ${onclick} ${styleAttr}>

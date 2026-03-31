@@ -4,7 +4,7 @@ export class Utility {
             window.copyCode = function(c) { vscode.postMessage({command:'copy', text:c}); };
             window.applyCode = function(c) { vscode.postMessage({command:'applyCode', code:c}); };
 
-            window.toggleBlock = function(event, el, type, subId) {
+            window.toggleBlock = function(event, el) {
                 if (event.target.closest('button') || event.target.closest('.code-actions')) return;
                 var container = el.closest('.block-container');
                 var msgDiv = container ? container.closest('[data-id]') : null;
@@ -13,7 +13,9 @@ export class Utility {
                     event.stopPropagation();
                     container.classList.toggle('expanded');
                     if (id) {
-                        var key = id + '_' + type + '_' + (subId || '');
+                        var type = container.getAttribute('data-type') || 'generic';
+                        var subId = container.getAttribute('data-subid') || '';
+                        var key = id + '_' + type + '_' + subId;
                         blockStates[key] = container.classList.contains('expanded');
                     }
                 }

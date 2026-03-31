@@ -17,26 +17,36 @@ export class Globals {
             setTimeout(function() {
                 var c = document.getElementById('container');
                 if (!c) return;
-                var cw = c.querySelector('.chat-container') || c.firstElementChild;
-                if (!cw) return;
                 
                 var autoScrollTimeout = null;
-                var ro = new ResizeObserver(function() {
-                    if (window.isAutoScrollOn && c) {
+                
+                // 1. React to DOM content changes inside the container height-wise
+                var mo = new MutationObserver(function() {
+                    if (window.isAutoScrollOn) {
                         window.isProgScroll = true;
                         c.scrollTo({ top: c.scrollHeight, behavior: 'auto' });
                         
                         clearTimeout(autoScrollTimeout);
                         autoScrollTimeout = setTimeout(function() {
                             window.isProgScroll = false;
-                        }, 50);
+                        }, 100);
                     }
                 });
-                ro.observe(cw);
+                mo.observe(c, { childList: true, subtree: true, characterData: true });
                 
+                // 2. React to explicit scrolling
                 c.addEventListener('scroll', function() {
                     if (window.isProgScroll) return;
                     
+                    var isAtBottom = (c.scrollTop + c.clientHeight >= c.scrollHeight - 10);
+                    window.isAutoScrollOn = isAtBottom;
+                }, { passive: true });
+                
+                // 3. React to actual human input (wheel, touch) to force disable if scrolling up
+                c.addEventListener('wheel', function(e) {
+                    if (e.deltaY < 0) { window.isAutoScrollOn = false; }
+                }, { passive: true });
+                c.addEventListener('touchmove', function() {
                     var isAtBottom = (c.scrollTop + c.clientHeight >= c.scrollHeight - 10);
                     window.isAutoScrollOn = isAtBottom;
                 }, { passive: true });

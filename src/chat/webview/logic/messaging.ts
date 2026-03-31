@@ -32,8 +32,8 @@ export class Messaging {
                     }
                 }
 
-                // 強制恢復 breathing
-                if (hasBreathing && !existing.classList.contains('breathing')) {
+                // 強制恢復 breathing - 只在目前訊息仍在 streaming/thinking 時才恢復
+                if (hasBreathing && window._syncIsStreaming && !existing.classList.contains('breathing')) {
                     existing.classList.add('breathing');
                 }
             }
@@ -161,6 +161,17 @@ export class Messaging {
                         }
                     });
 
+                    var isMsgStreaming = m.isStreaming || m.isThinking;
+
+                    // 在 smartSync 之前先清除 breathing，確保 syncAttributes 不會 "保護" 過期的動態邊框
+                    var container = d.querySelector('.block-container');
+                    if (container && !isMsgStreaming) {
+                        container.classList.remove('breathing');
+                    }
+
+                    // isCurrentlyStreaming 傳入給 syncAttributes 內部的 breathing 保護判斷
+                    window._syncIsStreaming = isMsgStreaming;
+
                     // 使用 smartSync 局部更新節點，避免閃爍
                     if (d.innerHTML === '') {
                         d.innerHTML = tempWrapper.innerHTML;
@@ -179,9 +190,9 @@ export class Messaging {
                     if (typeof htmlCache !== 'undefined') htmlCache[m.id] = m.html;
 
                     // 呼吸邊框與動畫狀態維護
-                    var container = d.querySelector('.block-container');
+                    container = d.querySelector('.block-container');
                     if (container) {
-                        if (m.isThinking || m.isStreaming) {
+                        if (isMsgStreaming) {
                             if (!container.classList.contains('breathing')) container.classList.add('breathing');
                         } else {
                             container.classList.remove('breathing');

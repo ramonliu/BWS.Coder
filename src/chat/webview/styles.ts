@@ -248,8 +248,7 @@ export class Styles {
             @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             
             .streaming { font-size: 11px; color: #9cdcfe; display: flex; align-items: center; gap: 6px; margin: 4px 12px; }
-            .streaming .dots::after { content: ''; animation: ellipsis 1.5s steps(4, end) infinite; }
-            @keyframes ellipsis { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
+
 
             .initial-loader { 
                 display: flex; 

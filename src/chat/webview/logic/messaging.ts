@@ -206,18 +206,7 @@ export class Messaging {
                 if (isGenerating) document.body.classList.add('is-streaming-active');
                 else document.body.classList.remove('is-streaming-active');
 
-                // [Auto-Scroll] - Event-based scroll tracking (2026-03-30: Refined Snap-to-bottom)
-                // 只要 isAutoScrollOn 為 true，就代表使用者目前在底部或剛送出訊息，應該維持在底部
-                if (window.isAutoScrollOn) {
-                    requestAnimationFrame(function() {
-                        window.isProgScroll = true;
-                        var scrollContainer = document.getElementById('container');
-                        if (scrollContainer) {
-                            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' });
-                        }
-                        setTimeout(function() { window.isProgScroll = false; }, 100);
-                    });
-                }
+                // [2026-03-31] [Auto-Scroll] - Now beautifully handled continuously by ResizeObserver in globals.ts
             }
 
             function renderAtts() {

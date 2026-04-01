@@ -30,7 +30,9 @@ export class MemoryManager {
                     } else if (block.success === false) {
                         text += `${block.action} ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
                     } else {
-                        text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                        // [2026-04-02] Fix: isPending block - do NOT re-emit the raw [@@ tag @@] as the AI
+                        // would interpret it as a pending instruction and execute it again (causing duplicates).
+                        text += `${block.action} ${block.filePath} (result pending)\n`;
                     }
                 } else if (block.action === 'create' || block.action === 'modify' || block.action === 'replace') {
                     text += `[@@ ${block.action}:${block.filePath} @@]\n${block.content ?? ''}\n[@@ eof @@]\n`;

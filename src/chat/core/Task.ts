@@ -44,6 +44,15 @@ export class Task {
     }
 
     public addAction(action: Action) {
+        // [2026-04-02] Dedup guard: prevent same (action, filePath) from being recorded twice.
+        // Can occur if AI outputs the same tag twice in one stream, or async batch races.
+        const isDuplicate = this.actions.some(
+            a => a.action === action.action && a.filePath === action.filePath
+        );
+        if (isDuplicate) {
+            console.log(`[Task:${this.name}] Duplicate action ignored: ${action.action}:${action.filePath}`);
+            return;
+        }
         this.actions.push(action);
     }
 

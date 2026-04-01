@@ -27,15 +27,20 @@ export class StreamingParser {
         this.buffer += chunk;
         const readyOps: MessageBlock[] = [];
         this.scan(readyOps);
+        if (readyOps.length > 0) {
+            console.log(`[PARSER:streaming] emitted ${readyOps.length} op(s):`, readyOps.map(o => `${o.action}:${o.filePath}`));
+        }
         return readyOps;
     }
 
     public close(): MessageBlock[] {
         const readyOps: MessageBlock[] = [];
+        console.log(`[PARSER:close] called. state=${this.state}, bufferLen=${this.buffer.length}, buffer=${JSON.stringify(this.buffer.slice(0, 80))}`);
         if (this.buffer) {
             if (this.state === 'TEXT' || this.state === 'XML_FOOTER') {
                 if (this.state === 'TEXT') this.appendToSpeak(this.buffer);
             } else if (this.state === 'TAG') {
+                console.log(`[PARSER:close] state=TAG → calling processFullTag with buffer=${JSON.stringify(this.buffer.slice(0, 80))}`);
                 this.processFullTag(this.buffer, readyOps);
             } else if (this.state === 'CONTENT' || this.state === 'XML_CONTENT') {
                 this.currentActionBlock!.content += this.buffer;
@@ -44,11 +49,15 @@ export class StreamingParser {
         }
 
         if ((this.state === 'CONTENT' || this.state === 'XML_CONTENT') && this.currentActionBlock) {
+            console.log(`[PARSER:close] flushing unclosed CONTENT block: ${this.currentActionBlock.action}:${this.currentActionBlock.filePath}`);
             this.currentActionBlock.content = stripMarkdownCodeBlocks(this.currentActionBlock.content || '');
             this.currentActionBlock.isClosed = true;
             readyOps.push(this.currentActionBlock);
             this.currentActionBlock = null;
             this.state = 'TEXT';
+        }
+        if (readyOps.length > 0) {
+            console.log(`[PARSER:close] emitted ${readyOps.length} op(s):`, readyOps.map(o => `${o.action}:${o.filePath}`));
         }
         return readyOps;
     }
@@ -288,6 +297,7 @@ export class StreamingParser {
             isClosed: (action === 'read' || action === 'execute' || action === 'delete')
         };
         this.blocks.push(this.currentActionBlock);
+        console.log(`[PARSER:processFullTag] action=${action}, filePath=${filePath}, isClosed=${this.currentActionBlock.isClosed}`);
 
         if (this.currentActionBlock.isClosed) {
             readyOps.push(this.currentActionBlock);

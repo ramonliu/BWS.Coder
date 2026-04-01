@@ -199,6 +199,7 @@ export abstract class ChatExecutor {
 
                         // [2026-03-26] Non-blocking Execution - Launch batch without await
                         const activeProviderIdForBatch = providerId || client.getProviderId();
+                        console.log(`[EXECUTOR:streaming] launching batch of ${newOps.length} op(s):`, newOps.map((o: any) => `${o.action}:${o.filePath}`));
                         const batchPromise = this.processOperationsBatch(
                             state, client, newOps as any, activeProviderIdForBatch, assistantMessage.providerName || 'AI',
                             taskName, currentTask, turnCts, globalCts
@@ -209,6 +210,7 @@ export abstract class ChatExecutor {
                                 block.isPending = false;
                                 block.success = res.success;
                                 block.result = (res.output || res.error || '').trim();
+                                console.log(`[EXECUTOR:streaming] addAction via batch: ${res.action}:${res.filePath}, success=${res.success}`);
                             });
                             state.updateWebview();
                         });
@@ -253,6 +255,7 @@ export abstract class ChatExecutor {
                 if (currentTask && currentTask.state !== TaskState.EXECUTING) currentTask.transition(TaskState.EXECUTING);
 
                 const activeProviderIdForFinal = providerId || client.getProviderId();
+                console.log(`[EXECUTOR:close] launching final batch of ${finalOps.length} op(s):`, finalOps.map((o: any) => `${o.action}:${o.filePath}`));
                 const finalBatchResults = await this.processOperationsBatch(
                     state, client, finalOps as any, activeProviderIdForFinal, assistantMessage.providerName || 'AI',
                     taskName, currentTask, turnCts, globalCts
@@ -263,6 +266,7 @@ export abstract class ChatExecutor {
                     block.isPending = false;
                     block.success = res.success;
                     block.result = (res.output || res.error || '').trim();
+                    console.log(`[EXECUTOR:close] addAction via finalBatch: ${res.action}:${res.filePath}, success=${res.success}`);
                 });
                 state.updateWebview();
             }

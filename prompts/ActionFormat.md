@@ -43,6 +43,10 @@ If you are performing multiple actions, you **MUST** close the current action wi
 
 - **`delete`**: `[@@ delete:file @@]` (MUST have closing `]`, no `eof` tag).
 - **`read`**: `[@@ read:file @@]` (MUST have closing `]`, no `eof` tag).
+  - **Single Line**: `[@@ read:src/main.ts#L10 @@]`
+  - **Line Range**: `[@@ read:src/utils/locale.ts#L1-50 @@]`
+  - **Zero Tolerance**: Use `#L` (capital L), not `:L` or `#l`.
+  - **TRUNCATION**: If the file is too large (>50 lines), it will be truncated. You **MUST** use line ranges (e.g. `#L51-100`) to read further if necessary.
 
 #### Terminal Execution
 <!-- [2026-03-27] [Fix-Hallucination] - Strengthen prompt to strictly forbid hallucinating execution results -->

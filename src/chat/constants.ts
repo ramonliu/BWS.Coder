@@ -31,7 +31,7 @@ export const getRenderBlockRegex = () => new RegExp(`${PATTERN_OP_START}([\\s\\S
  * matches: only block operations that contain code content (create, write, modify, replace)
  * Used by MemoryManager for pruning contents of successful operations.
  */
-export const getPruneBlockRegex = () => new RegExp(`\\[@@\\s*(create|write|modify|replace):\\s*(.*?)(?:\\s*@@\\]?|\\s*$)([\\s\\S]*?)\\[@@\\s*eof\\s*@@\\]?`, 'g');
+export const getPruneBlockRegex = () => new RegExp(`\\[@@\\s*(create|write|modify|replace|read|delete|execute):\\s*(.*?)(?:\\s*@@\\]?|\\s*$)([\\s\\S]*?)\\[@@\\s*eof\\s*@@\\]?`, 'g');
 
 /**
  * Used by MemoryManager to quickly check if a message contains any action.

@@ -135,6 +135,8 @@ export type LocaleStrings = {
     op_executeDetail: string;
     op_exited: string;
     op_failedInfo: string;
+    op_readEmptyRange: string;
+    op_readTruncatedHint: string;
     err_fileNotFound: string;
     err_isDirectory: string;
     err_noWorkspace: string;
@@ -371,6 +373,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         op_executeDetail: '指令 \`{0}\` 執行{1}\n輸出內容：\n{2}\n',
         op_exited: '進程已退出 ({0})',
         op_failedInfo: '操作 {0} 失敗：{1}',
+        op_readEmptyRange: '（指定的行數超出檔案範圍）',
+        op_readTruncatedHint: '\n\n[提示：由於檔案較大（共 {0} 行），已自動讀取前 50 行內容。若要繼續讀取剩餘內容，請使用 `[@@ read:{1}#L51-100 @@]` 讀取特定行數。]',
         err_fileNotFound: '檔案或目錄不存在',
         err_isDirectory: '無法讀取目錄，請提供檔案路徑',
         err_noWorkspace: '未開啟工作區，無法執行操作',
@@ -605,6 +609,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         op_executeDetail: '指令 \`{0}\` 执行{1}\n输出内容：\n{2}\n',
         op_exited: '进程已退出 ({0})',
         op_failedInfo: '操作 {0} 失败：{1}',
+        op_readEmptyRange: '（指定的行数超出文件范围）',
+        op_readTruncatedHint: '\n\n[提示：由于文件较大（共 {0} 行），已自动读取前 50 行内容。若要继续读取剩余内容，请使用 `[@@ read:{1}#L51-100 @@]` 读取特定行数。]',
         err_fileNotFound: '文件或目录不存在',
         err_isDirectory: '无法读取目录，请提供文件路径',
         err_noWorkspace: '未打开工作区，无法执行操作',
@@ -839,6 +845,8 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         op_executeDetail: 'Command \`{0}\` execution {1}\nOutput:\n{2}\n',
         op_exited: 'Process exited ({0})',
         op_failedInfo: 'Operation {0} failed: {1}',
+        op_readEmptyRange: '(Specified lines are outside of file range)',
+        op_readTruncatedHint: '\n\n[Hint: File too large ({0} lines total). Read first 50 lines automatically. To read more, use `[@@ read:{1}#L51-100 @@]` for specific ranges.]',
         err_fileNotFound: 'File or directory not found',
         err_isDirectory: 'Cannot read directory, please provide file path',
         err_noWorkspace: 'No workspace opened, cannot execute operation',

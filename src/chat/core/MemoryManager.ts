@@ -25,9 +25,23 @@ export class MemoryManager {
                 text += block.text || '';
             } else if (block.type === 'action') {
                 if (block.action === 'read' || block.action === 'execute') {
-                    text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                    if (block.success && block.result) {
+                        text += `${block.action} ${block.filePath} succeeded. Output:\n${block.result}\n`;
+                    } else if (block.success === false) {
+                        text += `${block.action} ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
+                    } else {
+                        text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                    }
                 } else if (block.action === 'create' || block.action === 'modify' || block.action === 'replace') {
                     text += `[@@ ${block.action}:${block.filePath} @@]\n${block.content ?? ''}\n[@@ eof @@]\n`;
+                } else if (block.action === 'delete') {
+                    if (block.success) {
+                        text += `delete ${block.filePath} succeeded.\n`;
+                    } else if (block.success === false) {
+                        text += `delete ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
+                    } else {
+                        text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                    }
                 } else {
                     text += `[@@ ${block.action}:${block.filePath} @@]\n`;
                 }

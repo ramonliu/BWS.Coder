@@ -210,15 +210,63 @@ export async function deleteFile(filePath: string): Promise<FileOpResult> {
 
 export async function readFileAction(filePath: string): Promise<FileOpResult> {
   try {
-    if (!fs.existsSync(filePath)) {
+    let actualPath = filePath;
+    let lineRange: { start: number, end: number } | undefined;
+
+    // [2026-04-01] Feature - Line Range Reading (No Regex)
+    const hashIndex = filePath.lastIndexOf('#L');
+    if (hashIndex !== -1) {
+      actualPath = filePath.substring(0, hashIndex);
+      const rangeStr = filePath.substring(hashIndex + 2);
+      if (rangeStr) {
+        const dashIndex = rangeStr.indexOf('-');
+        if (dashIndex !== -1) {
+          const startStr = rangeStr.substring(0, dashIndex);
+          const endStr = rangeStr.substring(dashIndex + 1);
+          const start = parseInt(startStr);
+          const end = parseInt(endStr);
+          if (!isNaN(start) && !isNaN(end)) {
+            lineRange = { start, end };
+          }
+        } else {
+          const lineNum = parseInt(rangeStr);
+          if (!isNaN(lineNum)) {
+            lineRange = { start: lineNum, end: lineNum };
+          }
+        }
+      }
+    }
+
+    if (!fs.existsSync(actualPath)) {
       return { success: false, action: 'read', filePath, error: t(getLang(), 'err_fileNotFound') };
     }
-    const stat = fs.statSync(filePath);
+    const stat = fs.statSync(actualPath);
     if (stat.isDirectory()) {
       return { success: false, action: 'read', filePath, error: t(getLang(), 'err_isDirectory') };
     }
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return { success: true, action: 'read', filePath, output: content };
+    const fullContent = fs.readFileSync(actualPath, 'utf-8');
+    const lines = fullContent.split(/\r?\n/);
+    
+    if (lineRange) {
+      const startIdx = Math.max(0, lineRange.start - 1);
+      const endIdx = Math.min(lines.length, lineRange.end);
+      
+      if (startIdx >= lines.length) {
+        return { success: true, action: 'read', filePath, output: t(getLang(), 'op_readEmptyRange') || '(outside of file range)' };
+      }
+      
+      const subContent = lines.slice(startIdx, endIdx).join('\n');
+      return { success: true, action: 'read', filePath, output: subContent };
+    }
+
+    // [2026-04-01] Feature - Large File Truncation (if no range specified)
+    if (lines.length > 50) {
+      const truncatedContent = lines.slice(0, 50).join('\n');
+      const hint = t(getLang(), 'op_readTruncatedHint', lines.length, filePath); // Using filePath (relative) for the suggested command
+      return { success: true, action: 'read', filePath, output: truncatedContent + hint };
+    }
+
+    return { success: true, action: 'read', filePath, output: fullContent };
   } catch (error) {
     return { success: false, action: 'read', filePath, error: String(error) };
   }

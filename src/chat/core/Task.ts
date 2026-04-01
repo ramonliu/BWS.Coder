@@ -61,9 +61,13 @@ export class Task {
         this.actions.forEach(a => {
             const status = a.success ? 'succeeded' : 'failed';
             if (a.action === 'execute') {
-                feedback += `> Command \`${a.filePath}\` ${status}. Output:\n${a.result || a.error || '(no output)'}\n`;
+                feedback += `> Command \`${a.filePath}\` ${status}. (Content is available in your history record)\n`;
             } else if (a.action === 'read') {
-                feedback += `> Read \`${a.filePath}\` ${status}. Content:\n${a.result || a.error || '(empty file)'}\n`;
+                let truncationInfo = "";
+                if (a.result && (a.result.includes('[Hint:') || a.result.includes('[提示：'))) {
+                    truncationInfo = " (Truncated: 50 lines shown. Please continue reading if needed.)";
+                }
+                feedback += `> Read \`${a.filePath}\` ${status}${truncationInfo}. (Content available in history)\n`;
             } else {
                 feedback += `> ${a.action} \`${a.filePath}\` ${status}${a.error ? `: ${a.error}` : ''}\n`;
             }

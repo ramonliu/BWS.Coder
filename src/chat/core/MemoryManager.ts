@@ -118,7 +118,7 @@ export class MemoryManager {
                         const cleanPath = path.trim();
                         // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)
                         if (successes.has(cleanPath)) {
-                            return '';
+                            return `${action} ${cleanPath} succeeded`;
                         }
                         return match;
                     });

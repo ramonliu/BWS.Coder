@@ -122,7 +122,7 @@ export class MessageRenderer {
         }
 
         // Step 2. 移除残留的原始 tag（Fallback）
-        const blockRegex = /\[@@\s*(?:create|modify|replace|read|execute|delete):[^\]]+@@\][\s\S]*?(?:\[@@\s*eof\s*@@\]|(?=\[@@ )|$)/gi;
+        const blockRegex = /<tool_call>[\s\S]*?<\/tool_call>|\[@@\s*(?:create|modify|replace|read|execute|delete):[^\]]+@@\][\s\S]*?(?:\[@@\s*eof\s*@@\]|(?=\[@@ )|$)/gi;
         text = text.replace(blockRegex, () => '');
 
         // Step 3. 處理一般的程式碼區塊 (非 File Op)
@@ -134,7 +134,7 @@ export class MessageRenderer {
         });
 
         // Step 4. 處理任務完成訊號
-        const doneRegex = /\[@@DONE@@\]|\[DONE\]|\([\s\S]+?\)已完成任務/g;
+        const doneRegex = /\[@@DONE@@\]|\[DONE\]|<DONE\/>|\([\s\S]+?\)已完成任務/g;
         text = text.replace(doneRegex, () => {
             const id = `__PROTECTED_BLOCK_${protected_blocks.length}__`;
             protected_blocks.push(MessageTemplates.renderDoneBlock(msgId));

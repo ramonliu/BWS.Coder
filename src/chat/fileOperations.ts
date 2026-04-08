@@ -68,49 +68,77 @@ export async function parseAndExecuteFileOps(
 
 export function parseFileOps(response: string, isStreaming: boolean = false): FileOperation[] {
   const ops: FileOperation[] = [];
-  const regex = getFileOpRegex();
+  // Match full tool_call block
+  const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(response)) !== null) {
-    const action = match[1] as 'create' | 'write' | 'modify' | 'replace' | 'delete' | 'execute' | 'read';
-    const filePath = match[2].trim();
-    const startIndex = regex.lastIndex;
+  while ((match = toolCallRegex.exec(response)) !== null) {
+    const innerXml = match[1];
+    
+    // Extract name
+    const nameMatch = /<name>(.*?)<\/name>/i.exec(innerXml);
+    if (!nameMatch) continue;
+    const action = nameMatch[1].trim().toLowerCase() as FileOperation['action'];
+
+    // Extract path or command
+    const pathMatch = /<path>(.*?)<\/path>/i.exec(innerXml);
+    const commandMatch = /<command>(.*?)<\/command>/i.exec(innerXml);
+    const filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
 
     let content = '';
-    let matchLength = 0;
-    let realEndIndex = startIndex;
 
-    if (action === 'create' || action === 'write' || action === 'modify' || action === 'replace') {
-      const eofRegex = getEofRegex();
-      eofRegex.lastIndex = startIndex;
-      const eofMatch = eofRegex.exec(response);
-
-      if (!eofMatch) {
-        if (isStreaming) {
-          continue;
-        }
-        realEndIndex = response.length;
-        matchLength = 0;
-      } else {
-        realEndIndex = eofMatch.index;
-        matchLength = eofMatch[0].length;
-      }
-
-      content = response.substring(startIndex, realEndIndex);
-      if (content.startsWith('\n')) content = content.substring(1);
-      else if (content.startsWith('\r\n')) content = content.substring(2);
-      if (content.endsWith('\n')) content = content.substring(0, content.length - 1);
-      if (content.endsWith('\r')) content = content.substring(0, content.length - 1);
-    } else {
-      content = '';
-      realEndIndex = startIndex;
-      matchLength = 0;
+    if (action === 'create' || action === 'write' || action === 'modify') {
+      const contentMatch = /<content>([\s\S]*?)<\/content>/i.exec(innerXml);
+      content = contentMatch ? contentMatch[1] : '';
+    } else if (action === 'replace') {
+      const searchMatch = /<search>([\s\S]*?)<\/search>/i.exec(innerXml);
+      const replaceMatch = /<replace>([\s\S]*?)<\/replace>/i.exec(innerXml);
+      
+      const searchContent = searchMatch ? searchMatch[1] : '';
+      const replaceContent = replaceMatch ? replaceMatch[1] : '';
+      
+      content = `<search>\n${searchContent}\n</search>\n<replace>\n${replaceContent}\n</replace>`;
+    } else if (action === 'execute') {
+      content = filePath; // command string acts as filePath
     }
 
+    if (content.startsWith('\n')) content = content.substring(1);
+    if (content.endsWith('\n')) content = content.slice(0, -1);
     const cleanedContent = stripMarkdownCodeBlocks(content);
+
     ops.push({ action, filePath, content: cleanedContent });
-    regex.lastIndex = realEndIndex + matchLength;
   }
+
+  // Handle unclosed block if streaming
+  if (isStreaming) {
+    const unclosedMatch = response.match(/<tool_call>(?![\s\S]*?<\/tool_call>)[\s\S]*$/i);
+    if (unclosedMatch) {
+      const innerXml = unclosedMatch[0];
+      const nameMatch = /<name>(.*?)<\/name>/i.exec(innerXml);
+      const pathMatch = /<path>(.*?)<\/path>/i.exec(innerXml);
+      const commandMatch = /<command>(.*?)<\/command>/i.exec(innerXml);
+
+      if (nameMatch) {
+         const action = nameMatch[1].trim().toLowerCase() as FileOperation['action'];
+         const filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
+         
+         let content = '';
+         if (action === 'create' || action === 'write' || action === 'modify') {
+            const contentMatch = /<content>([\s\S]*)$/i.exec(innerXml);
+            if (contentMatch) {
+               content = contentMatch[1];
+               if (content.endsWith('</content>')) content = content.substring(0, content.length - 10);
+            }
+         } else if (action === 'replace') {
+             // For streaming replace, we might only have part of search or replace, skip complex streaming or just show what we have.
+             content = innerXml; 
+         }
+         
+         ops.push({ action, filePath, content: stripMarkdownCodeBlocks(content) });
+      }
+    }
+  }
+
   return ops;
 }
 
@@ -166,30 +194,44 @@ export async function replaceFileContent(filePath: string, patchContent: string)
     }
     let oldCode = cleanPatch.substring(startIdx + startMatch[0].length, dividerIdx).trim();
     let newCode = cleanPatch.substring(dividerIdx + dividerMatch[0].length, endIdx).trim();
-    oldCode = oldCode.replace(/^\n+|\n+$/g, '');
-    newCode = newCode.replace(/^\n+|\n+$/g, '');
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    
+    // Normalize newlines to \n to prevent mismatches between \r\n and \n
+    oldCode = oldCode.replace(/\r/g, '').replace(/^\n+|\n+$/g, '');
+    newCode = newCode.replace(/\r/g, '').replace(/^\n+|\n+$/g, '');
+    
+    let fileContent = fs.readFileSync(filePath, 'utf-8');
+    const originalHasCR = fileContent.includes('\r\n');
+    fileContent = fileContent.replace(/\r/g, ''); // Normalize file content
+    
     const fileLines = fileContent.split('\n');
+    
     if (startLine > 0) {
       const searchStart = Math.max(0, startLine - 5);
       const searchEnd = Math.min(fileLines.length, endLine + 5);
       const subContent = fileLines.slice(searchStart, searchEnd).join('\n');
       if (subContent.includes(oldCode)) {
-        const newSubContent = subContent.replace(oldCode, newCode);
-        const newFullLines = [...fileLines.slice(0, searchStart), ...newSubContent.split('\n'), ...fileLines.slice(searchEnd)];
-        fs.writeFileSync(filePath, newFullLines.join('\n'), 'utf-8');
+        // Use split().join() to safely replace without triggering JS string replacement patterns like $$ or $&
+        const newSubContent = subContent.split(oldCode).join(newCode);
+        let newFullLines = [...fileLines.slice(0, searchStart), ...newSubContent.split('\n'), ...fileLines.slice(searchEnd)].join('\n');
+        
+        if (originalHasCR) newFullLines = newFullLines.replace(/\n/g, '\r\n');
+        fs.writeFileSync(filePath, newFullLines, 'utf-8');
         return { success: true, action: 'replace', filePath };
       }
     }
+    
     if (fileContent.includes(oldCode)) {
       const parts = fileContent.split(oldCode);
       if (parts.length > 2) {
         return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceMultipleFound') };
       }
-      const newFileContent = fileContent.replace(oldCode, newCode);
+      
+      let newFileContent = fileContent.split(oldCode).join(newCode);
+      if (originalHasCR) newFileContent = newFileContent.replace(/\n/g, '\r\n');
       fs.writeFileSync(filePath, newFileContent, 'utf-8');
       return { success: true, action: 'replace', filePath };
     }
+
     return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceNotFound') };
   } catch (error) {
     return { success: false, action: 'replace', filePath, error: String(error) };
@@ -208,7 +250,7 @@ export async function deleteFile(filePath: string): Promise<FileOpResult> {
   }
 }
 
-export async function readFileAction(filePath: string): Promise<FileOpResult> {
+export async function readFileAction(filePath: string, displayPath?: string): Promise<FileOpResult> {
   try {
     let actualPath = filePath;
     let lineRange: { start: number, end: number } | undefined;
@@ -260,11 +302,15 @@ export async function readFileAction(filePath: string): Promise<FileOpResult> {
     }
 
     // [2026-04-01] Feature - Large File Truncation (if no range specified)
+    // [2026-04-02] TBD temporarily disabled
+    /*
     if (lines.length > 50) {
       const truncatedContent = lines.slice(0, 50).join('\n');
-      const hint = t(getLang(), 'op_readTruncatedHint', lines.length, filePath); // Using filePath (relative) for the suggested command
+      const pathForHint = displayPath || filePath;
+      const hint = t(getLang(), 'op_readTruncatedHint', lines.length, pathForHint); 
       return { success: true, action: 'read', filePath, output: truncatedContent + hint };
     }
+    */
 
     return { success: true, action: 'read', filePath, output: fullContent };
   } catch (error) {

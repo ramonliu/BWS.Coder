@@ -25,8 +25,23 @@ export class MemoryManager {
                 text += block.text || '';
             } else if (block.type === 'action') {
                 if (block.action === 'read' || block.action === 'execute') {
-                    if (block.success && block.result) {
-                        text += `${block.action} ${block.filePath} succeeded. Output:\n${block.result}\n`;
+                    if (block.success && block.result !== undefined) {
+                        // [2026-04-02] Fix: If read is truncated/paginated, omit "succeeded" to not confuse AI
+                        if (block.action === 'read' && (block.result.includes('[Hint:') || block.result.includes('[提示：'))) {
+                            const isRange = (block.filePath || '').includes('#L');
+                            let displayFile = block.filePath;
+                            if (!isRange) {
+                                // 動態計算回傳的實際內容有多少行（扣除最後的 Hint）
+                                const splitIdx = block.result.lastIndexOf('\n\n[');
+                                const actualLines = splitIdx !== -1 
+                                    ? block.result.substring(0, splitIdx).split('\n').length 
+                                    : 50;
+                                displayFile = `${block.filePath}#L1-${actualLines}`;
+                            }
+                            text += `read ${displayFile} output:\n${block.result}\n`;
+                        } else {
+                            text += `${block.action} ${block.filePath} succeeded. Output:\n${block.result}\n`;
+                        }
                     } else if (block.success === false) {
                         text += `${block.action} ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
                     } else {
@@ -35,17 +50,21 @@ export class MemoryManager {
                         text += `${block.action} ${block.filePath} (result pending)\n`;
                     }
                 } else if (block.action === 'create' || block.action === 'modify' || block.action === 'replace') {
-                    text += `[@@ ${block.action}:${block.filePath} @@]\n${block.content ?? ''}\n[@@ eof @@]\n`;
+                    const contentArg = block.action === 'replace' 
+                        ? (block.content ?? '')
+                        : `<content>\n${block.content ?? ''}\n</content>`;
+                    text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <path>${block.filePath}</path>\n    ${contentArg}\n  </arguments>\n</tool_call>\n`;
                 } else if (block.action === 'delete') {
                     if (block.success) {
                         text += `delete ${block.filePath} succeeded.\n`;
                     } else if (block.success === false) {
                         text += `delete ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
                     } else {
-                        text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                        text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <path>${block.filePath}</path>\n  </arguments>\n</tool_call>\n`;
                     }
                 } else {
-                    text += `[@@ ${block.action}:${block.filePath} @@]\n`;
+                    const argKey = block.action === 'execute' ? 'command' : 'path';
+                    text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <${argKey}>${block.filePath}</${argKey}>\n  </arguments>\n</tool_call>\n`;
                 }
             }
             // Ignore 'think' type, thought tokens shouldn't be added to past context typically, 
@@ -101,10 +120,22 @@ export class MemoryManager {
         const paths = new Set<string>();
         for (const m of messages) {
             if (m.role === 'user' && m.content.includes('[Execution Result]')) {
-                // Regex matches: > create `path` succeeded
-                const matches = m.content.matchAll(/> (?:create|modify|replace) `(.*?)` succeeded/g);
-                for (const match of matches) {
-                    paths.add(match[1].trim());
+                const match = m.content.match(/```json\n([\s\S]*?)\n```/);
+                if (match) {
+                    try {
+                        const results = JSON.parse(match[1]);
+                        if (Array.isArray(results)) {
+                            for (const r of results) {
+                                if (['create', 'modify', 'replace'].includes(r.name) && r.result === 'succeeded') {
+                                    if (r.path) {
+                                        paths.add(r.path.trim());
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // ignore parse errors
+                    }
                 }
             }
         }
@@ -127,9 +158,8 @@ export class MemoryManager {
                 // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
                 let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m) : m.content;
 
-                // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the `[@@ ... @@]` syntax in history. 
-                // If we completely remove the tags and replace with `[System Note...]`, the AI assumes it should output `[System Note...]` in the future instead of real tags.
-                if (m.role === 'assistant' && content.includes('[@@')) {
+                // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the syntax in history. 
+                if (m.role === 'assistant' && content.includes('<tool_call>')) {
                     content = content.replace(getPruneBlockRegex(), (match, action, path, code) => {
                         const cleanPath = path.trim();
                         // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)

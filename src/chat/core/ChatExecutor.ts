@@ -233,15 +233,17 @@ export abstract class ChatExecutor {
             assistantMessage.isThinking = false;
 
             // [2026-03-29] [Workflow-Resume] - Set isTaskDone before tag replacement to ensure logic can resume
-            if (assistantMessage.content.includes('[@@DONE@@]') || assistantMessage.content.includes('[DONE]')) {
+            if (assistantMessage.content.includes('[@@DONE@@]') || assistantMessage.content.includes('[DONE]') || assistantMessage.content.includes('<DONE/>')) {
+                // If it's a legacy [@@DONE@@] signal, strip it for cleaner UI, unless user is debugging
+                if (assistantMessage.content.includes('[@@DONE@@]')) {
+                    const clean = assistantMessage.content.replace('[@@DONE@@]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
+                    assistantMessage.content = clean;
+                } else if (assistantMessage.content.includes('[DONE]')) {
+                    assistantMessage.content = assistantMessage.content.replace('[DONE]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
+                } else if (assistantMessage.content.includes('<DONE/>')) {
+                    assistantMessage.content = assistantMessage.content.replace('<DONE/>', t(getLang(), 'ui_completedTask', taskName || 'AI'));
+                }
                 assistantMessage.isTaskDone = true;
-            }
-
-            // [2026-03-25] Narrative Step Completion Signal - Replace [@@DONE@@] with narrative text for history coherence.
-            if (assistantMessage.content.includes('[@@DONE@@]')) {
-                assistantMessage.content = assistantMessage.content.replace('[@@DONE@@]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
-            } else if (assistantMessage.content.includes('[DONE]')) {
-                assistantMessage.content = assistantMessage.content.replace('[DONE]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
             }
 
             state.updateWebview();
@@ -431,7 +433,7 @@ export abstract class ChatExecutor {
                 case 'replace': res = await replaceFileContent(absolutePath, op.content || ''); break;
                 case 'delete': res = await deleteFile(absolutePath); break;
                 case 'execute': res = await executeCommand((op.content || cleanFilePath || '').trim(), globalCts?.token); break;
-                case 'read': res = await readFileAction(absolutePath); break;
+                case 'read': res = await readFileAction(absolutePath, cleanFilePath); break;
                 default: res = { action: 'execute', success: false, error: 'Unknown action', filePath: cleanFilePath || 'unknown' };
             }
         } finally { release(); }

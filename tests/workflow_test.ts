@@ -49,7 +49,7 @@ async function simulateWorkflowStep(stepRole: string, stepPrompt: string, scenar
 
         // 此處為實際在 WorkflowRunner.ts 中的修正邏輯
         const content = response.content || '';
-        const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]');
+        const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]') || content.includes('<DONE/>');
 
         if (isDone) {
             console.log(`[LOG] 偵測到完成標籤，結束步驟。`);

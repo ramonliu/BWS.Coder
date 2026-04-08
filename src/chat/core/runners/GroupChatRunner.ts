@@ -140,7 +140,7 @@ export class GroupChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
 
                     // [2026-03-27] User Preference: 0 means unlimited rounds
                     const configMaxRounds = vscode.workspace.getConfiguration('bwsCoder').get<number>('groupChatMaxRounds');

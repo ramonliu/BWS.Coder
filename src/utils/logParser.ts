@@ -23,7 +23,7 @@ export function parseRawLog(fileContent: string): ParsedLog {
             cleanLine = cleanLine.replace(/^data:\s*/, '');
         }
         
-        if (cleanLine === '[DONE]') return;
+        if (cleanLine === '[DONE]' || cleanLine === '<DONE/>') return;
 
         try {
             const json = JSON.parse(cleanLine);

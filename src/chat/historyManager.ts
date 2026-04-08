@@ -42,7 +42,7 @@ export interface MessageBlock {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;            // Legacy content / AI combined text
   fileOps?: FileOpRecord[];   // [DEPRECATED] Use blocks instead.
   blocks?: MessageBlock[];    // [2026-03-28] [State-Machine-Parser] Semantic sequential layout

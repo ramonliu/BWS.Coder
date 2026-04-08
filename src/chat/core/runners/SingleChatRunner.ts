@@ -65,7 +65,7 @@ export class SingleChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
 
                     if (isDone && !result.hasOps) {
                         const am = task.assistantMessage;

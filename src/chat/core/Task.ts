@@ -14,6 +14,7 @@ export enum TaskState {
 }
 
 export interface Action {
+    id?: string;
     action: 'create' | 'modify' | 'replace' | 'delete' | 'execute' | 'read';
     filePath: string;
     content?: string;
@@ -26,6 +27,13 @@ export class Task {
     public state: TaskState = TaskState.INIT;
     public actions: Action[] = [];
     public assistantMessage?: ChatMessage;
+
+    /**
+     * [2026-04-02] Tracks files that were auto-truncated on first read (too large).
+     * Key: relative filePath (no #L suffix), Value: total line count.
+     * Used to distinguish "pagination continuation" from "deliberate range reads".
+     */
+    private fileReadProgress: Map<string, number> = new Map();
 
     constructor(
         public id: string,
@@ -53,6 +61,20 @@ export class Task {
             console.log(`[Task:${this.name}] Duplicate action ignored: ${action.action}:${action.filePath}`);
             return;
         }
+
+        // [2026-04-02] Track large-file reads: when a no-range read is truncated,
+        // record the total line count so subsequent range reads can be identified as continuations.
+        if (action.action === 'read' && action.result && !action.filePath.includes('#L')) {
+            const totalMatch = action.result.match(/(?:共\s*(\d+)\s*行)|(?:(\d+)\s*lines?\s*total)/i);
+            if (totalMatch) {
+                const total = parseInt(totalMatch[1] || totalMatch[2]);
+                if (!isNaN(total)) {
+                    this.fileReadProgress.set(action.filePath, total);
+                    console.log(`[Task:${this.name}] Tracking large file: ${action.filePath} totalLines=${total}`);
+                }
+            }
+        }
+
         this.actions.push(action);
     }
 
@@ -66,21 +88,55 @@ export class Task {
     public getFeedbackContent(): string {
         if (this.actions.length === 0) return '';
         
-        let feedback = `[Execution Result]\n`;
-        this.actions.forEach(a => {
+        const results = this.actions.map(a => {
             const status = a.success ? 'succeeded' : 'failed';
+            let outputContent = ``;
+
             if (a.action === 'execute') {
-                feedback += `> Command \`${a.filePath}\` ${status}. (Content is available in your history record)\n`;
+                outputContent = `${a.result || a.error || ''}`;
             } else if (a.action === 'read') {
                 let truncationInfo = "";
-                if (a.result && (a.result.includes('[Hint:') || a.result.includes('[提示：'))) {
-                    truncationInfo = " (Truncated: 50 lines shown. Please continue reading if needed.)";
+                const hashIdx = a.filePath.lastIndexOf('#L');
+                const isRangeRead = hashIdx !== -1;
+
+                if (!isRangeRead) {
+                    if (a.result && (a.result.includes('[Hint:') || a.result.includes('[提示：'))) {
+                        truncationInfo = "\n(Truncated: 50 lines shown. Please continue reading if needed.)";
+                    }
+                } else {
+                    const baseFilePath = a.filePath.substring(0, hashIdx);
+                    const totalLines = this.fileReadProgress.get(baseFilePath);
+                    if (totalLines !== undefined) {
+                        const rangeStr = a.filePath.substring(hashIdx + 2);
+                        const dashIdx = rangeStr.indexOf('-');
+                        const startLine = parseInt(rangeStr.substring(0, dashIdx !== -1 ? dashIdx : undefined));
+                        const endLine = dashIdx !== -1 ? parseInt(rangeStr.substring(dashIdx + 1)) : startLine;
+                        const remaining = isNaN(endLine) ? 0 : totalLines - endLine;
+                        if (remaining > 0) {
+                            const windowSize = isNaN(startLine) ? 50 : (endLine - startLine + 1);
+                            const nextStart = endLine + 1;
+                            const nextEnd = Math.min(endLine + windowSize, totalLines);
+                            truncationInfo = `\n(${remaining} more lines remaining of ${totalLines} total. Continue with \`<tool_call><name>read</name><arguments><path>${baseFilePath}</path><start_line>${nextStart}</start_line><end_line>${nextEnd}</end_line></arguments></tool_call>\`)`;
+                        }
+                    }
                 }
-                feedback += `> Read \`${a.filePath}\` ${status}${truncationInfo}. (Content available in history)\n`;
+
+                outputContent = `${a.result || ''}${truncationInfo}`;
             } else {
-                feedback += `> ${a.action} \`${a.filePath}\` ${status}${a.error ? `: ${a.error}` : ''}\n`;
+                outputContent = `${a.result || a.error || ''}`;
             }
+
+            return {
+                role: "tool",
+                tool_call_id: a.id || String(Math.floor(Math.random() * 100000000)),
+                name: a.action,
+                path: a.filePath,
+                result: status,
+                content: outputContent.trim()
+            };
         });
-        return feedback.trim();
+
+        // Return as a JSON array wrapped in markdown, with the required Execution Result header for pruning
+        return `[Execution Result]\n\`\`\`json\n${JSON.stringify(results, null, 2)}\n\`\`\``;
     }
 }

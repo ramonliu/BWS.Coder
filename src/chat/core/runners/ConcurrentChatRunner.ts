@@ -97,8 +97,7 @@ export class ConcurrentChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    // [2026-03-25] [Testing & Bug-fixing] - Unify DONE markers to [@@DONE@@] but keep legacy [DONE] support.
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]');
+                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
 
                     if (isDone && !result.hasOps) {
                         const am = task.assistantMessage;

@@ -85,7 +85,7 @@ export class WorkflowRunner extends ChatExecutor {
         // [2026-03-29] [Workflow-Resume] - Preferred check via isTaskDone flag, fallback to string matching for backward compatibility
         state.messages.forEach((m: ChatMessage) => {
             if (m.role === 'assistant' && m.taskName) {
-                if (m.isTaskDone === true || m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]')) {
+                if (m.isTaskDone === true || m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]') || m.content.includes('<DONE/>')) {
                     doneRoles.add(m.taskName);
                 }
             }
@@ -178,7 +178,7 @@ export class WorkflowRunner extends ChatExecutor {
 
             // [2026-03-25] [Workflow Fix] - Prioritize isDone signal. If AI says DONE, we move to next step even if it did an Op this turn.
             const content = result.content || '';
-            const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]');
+            const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]') || content.includes('<DONE/>');
 
             if (isDone) {
                 const am = task.assistantMessage;

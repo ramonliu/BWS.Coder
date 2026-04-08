@@ -122,10 +122,13 @@ export class ChatMessageHandler {
             projectContext += PlanningHandler.getDynamicContext(workspacePath);
 
             // [2026-03-28] [Task-AntiHallucination] - Inject project 2-level structure to prevent hallucination
+            // [2026-04-09] [REMOVED] - Disabling automatic structure injection to force AI to explore the workspace manually.
+            /*
             const structure = this.getWorkspaceStructure(workspacePath, 0, 2);
             if (structure) {
                 projectContext += `\n--- [PROJ_CONTEXT: WORKSPACE_STRUCTURE (Level 2)] ---\n${structure}\n`;
             }
+            */
         }
 
         // [2026-03-29] [Workflow-ModularPrompt] - Keep Persona and Action Format separate for runners

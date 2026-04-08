@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ChatMessage } from '../historyManager';
-import { getHasActionRegex, getPruneBlockRegex } from '../constants';
+import { getHasActionRegex } from '../constants';
 
 
 /**
@@ -12,66 +12,59 @@ export class MemoryManager {
      * Assigns importance weights to messages based on their role and content types.
      * Higher weight (up to 1.0) means more likely to be kept.
      */
-    // [2026-03-28] [State-Machine-Parser] - Reconstruct AI-readable context from sequential blocks[]
-    public static buildApiContent(msg: ChatMessage): string {
+    // [2026-04-08] [State-Machine-Parser] - Reconstruct AI-readable context from sequential blocks[] with structured pruning
+    public static renderBlock(block: any, isFresh: boolean): string {
+        if (block.type === 'speak') return block.text || '';
+        if (block.type !== 'action') return '';
+
+        const action = block.action || 'execute';
+        const id = block.id || '00000000';
+        const path = block.filePath || '';
+        const rawContent = block.content || '';
+
+        // [2026-04-08] Head/Tail Truncation for non-fresh messages
+        let displayContent = rawContent;
+        if (!isFresh && rawContent.length > 2000) {
+            const head = rawContent.slice(0, 1000);
+            const tail = rawContent.slice(-1000);
+            displayContent = `${head}\n\n... (Content truncated to save tokens. Middle ${rawContent.length - 2000} chars hidden) ...\n\n${tail}`;
+        }
+
+        let internalTags = '';
+        if (action === 'read') {
+            let start = '';
+            let end = '';
+            const hashIdx = path.lastIndexOf('#L');
+            const cleanPath = hashIdx !== -1 ? path.substring(0, hashIdx) : path;
+            if (hashIdx !== -1) {
+                const range = path.substring(hashIdx + 2).split('-');
+                if (range[0]) start = `\n    <start_line>${range[0]}</start_line>`;
+                if (range[1]) end = `\n    <end_line>${range[1]}</end_line>`;
+            }
+            internalTags = `<path>${cleanPath}</path>${start}${end}`;
+        } else if (action === 'execute') {
+            internalTags = `<command>${path}</command>`;
+        } else if (action === 'replace') {
+            // [2026-04-08] Note: 'replace' content is special as it contains search/replace tags
+            // For now, we apply simple truncation, but ideally we should be tag-aware.
+            internalTags = `<path>${path}</path>\n    ${displayContent}`;
+        } else if (action === 'create' || action === 'modify') {
+            internalTags = `<path>${path}</path>\n    <content>\n${displayContent}\n    </content>`;
+        } else {
+            internalTags = `<path>${path}</path>`;
+        }
+
+        return `<tool_call>\n  <name>${action}</name>\n  <tool_call_id>${id}</tool_call_id>\n  <arguments>\n    ${internalTags}\n  </arguments>\n</tool_call>\n`;
+    }
+
+    public static buildApiContent(msg: ChatMessage, isFresh: boolean = true): string {
         if (!msg.blocks || msg.blocks.length === 0) {
-            // Legacy message
             return msg.content || '';
         }
 
-        let text = '';
-        for (const block of msg.blocks) {
-            if (block.type === 'speak') {
-                text += block.text || '';
-            } else if (block.type === 'action') {
-                if (block.action === 'read' || block.action === 'execute') {
-                    if (block.success && block.result !== undefined) {
-                        // [2026-04-02] Fix: If read is truncated/paginated, omit "succeeded" to not confuse AI
-                        if (block.action === 'read' && (block.result.includes('[Hint:') || block.result.includes('[提示：'))) {
-                            const isRange = (block.filePath || '').includes('#L');
-                            let displayFile = block.filePath;
-                            if (!isRange) {
-                                // 動態計算回傳的實際內容有多少行（扣除最後的 Hint）
-                                const splitIdx = block.result.lastIndexOf('\n\n[');
-                                const actualLines = splitIdx !== -1 
-                                    ? block.result.substring(0, splitIdx).split('\n').length 
-                                    : 50;
-                                displayFile = `${block.filePath}#L1-${actualLines}`;
-                            }
-                            text += `read ${displayFile} output:\n${block.result}\n`;
-                        } else {
-                            text += `${block.action} ${block.filePath} succeeded. Output:\n${block.result}\n`;
-                        }
-                    } else if (block.success === false) {
-                        text += `${block.action} ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
-                    } else {
-                        // [2026-04-02] Fix: isPending block - do NOT re-emit the raw [@@ tag @@] as the AI
-                        // would interpret it as a pending instruction and execute it again (causing duplicates).
-                        text += `${block.action} ${block.filePath} (result pending)\n`;
-                    }
-                } else if (block.action === 'create' || block.action === 'modify' || block.action === 'replace') {
-                    const contentArg = block.action === 'replace' 
-                        ? (block.content ?? '')
-                        : `<content>\n${block.content ?? ''}\n</content>`;
-                    text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <path>${block.filePath}</path>\n    ${contentArg}\n  </arguments>\n</tool_call>\n`;
-                } else if (block.action === 'delete') {
-                    if (block.success) {
-                        text += `delete ${block.filePath} succeeded.\n`;
-                    } else if (block.success === false) {
-                        text += `delete ${block.filePath} failed: ${block.result || 'Unknown error'}\n`;
-                    } else {
-                        text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <path>${block.filePath}</path>\n  </arguments>\n</tool_call>\n`;
-                    }
-                } else {
-                    const argKey = block.action === 'execute' ? 'command' : 'path';
-                    text += `<tool_call>\n  <name>${block.action}</name>\n  <arguments>\n    <${argKey}>${block.filePath}</${argKey}>\n  </arguments>\n</tool_call>\n`;
-                }
-            }
-            // Ignore 'think' type, thought tokens shouldn't be added to past context typically, 
-            // or if they are they are managed by the LLM client adapter natively for prolonged reasoning.
-        }
-        return text;
+        return msg.blocks.map(b => MemoryManager.renderBlock(b, isFresh)).join('');
     }
+
 
     public static assignWeights(messages: ChatMessage[]): void {
         messages.forEach((m, index) => {
@@ -92,6 +85,8 @@ export class MemoryManager {
                 // [2026-03-28] [State-Machine-Parser] - Check blocks[] first, fallback to regex for old messages
                 const hasActions = (m.blocks && m.blocks.some(b => b.type === 'action')) || getHasActionRegex().test(m.content);
                 m.weight = hasActions ? 0.8 : 0.4;
+            } else if (m.role === 'tool') {
+                m.weight = 0.8;
             } else {
                 m.weight = 0.5;
             }
@@ -101,7 +96,7 @@ export class MemoryManager {
                 if (m.content.includes('failed')) {
                     m.weight = 0.9;
                 } else if (m.content.includes('succeeded')) {
-                    m.weight = 0.4;
+                    m.weight = 0.8;
                 }
             }
 
@@ -114,61 +109,40 @@ export class MemoryManager {
     }
 
     /**
-     * Pruning Logic - Identifies successful file operations to compress the history.
-     */
-    private static getSuccessfulPaths(messages: ChatMessage[]): Set<string> {
-        const paths = new Set<string>();
-        for (const m of messages) {
-            if (m.role === 'user' && m.content.includes('[Execution Result]')) {
-                const match = m.content.match(/```json\n([\s\S]*?)\n```/);
-                if (match) {
-                    try {
-                        const results = JSON.parse(match[1]);
-                        if (Array.isArray(results)) {
-                            for (const r of results) {
-                                if (['create', 'modify', 'replace'].includes(r.name) && r.result === 'succeeded') {
-                                    if (r.path) {
-                                        paths.add(r.path.trim());
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // ignore parse errors
-                    }
-                }
-            }
-        }
-        return paths;
-    }
-
-    /**
      * Prunes or summarizes messages to fit within a context budget.
      * Returns a new array of messages for the LLM payload.
      */
-    public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 2000): ChatMessage[] {
+    public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 20000): ChatMessage[] {
         const config = vscode.workspace.getConfiguration('bwsCoder');
-        const maxTotalChars = config.get<number>('maxMemoryBudget') || 10240;
+        const maxTotalChars = config.get<number>('maxMemoryBudget') || 100000;
 
-        const successes = this.getSuccessfulPaths(messages);
+        // [2026-04-08] [Volume-Based Freshness] - Pre-calculate which messages are "fresh" based on data volume
+        // We protect the most recent ~32000 chars (approx 8000 tokens) from any pruning.
+        const SAFE_FRESH_VOLUME = 32000;
+        let cumulativeVolume = 0;
+        const freshStatus = new Array(messages.length).fill(false);
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            const estimate = m.role === 'assistant' ? MemoryManager.buildApiContent(m, true).length : (m.content?.length || 0);
+            cumulativeVolume += estimate;
+            if (cumulativeVolume <= SAFE_FRESH_VOLUME) {
+                freshStatus[i] = true;
+            } else {
+                break; // Stop marking as fresh once we exceed the buffer
+            }
+        }
 
         let processed = messages
             .filter(m => (m.content && m.content.trim().length > 0) || (m.attachments && m.attachments.length > 0))
-            .map(m => {
-                // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
-                let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m) : m.content;
+            .map((m, index) => {
+                // [2026-04-08] Use volume-based freshness status
+                const isFresh = freshStatus[index];
 
-                // [2026-03-28] [Fix-Pruning-Hallucination] - Fix AI mimicking the prune note by preserving the syntax in history. 
-                if (m.role === 'assistant' && content.includes('<tool_call>')) {
-                    content = content.replace(getPruneBlockRegex(), (match, action, path, code) => {
-                        const cleanPath = path.trim();
-                        // [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Zero-artifact pruning (completely strip successful blocks from history)
-                        if (successes.has(cleanPath)) {
-                            return `${action} ${cleanPath} succeeded`;
-                        }
-                        return match;
-                    });
-                }
+                // [2026-03-28] [FileOps-Refactor] - Use buildApiContent to reconstruct full context text for LLM
+                let content = m.role === 'assistant' ? MemoryManager.buildApiContent(m, isFresh) : m.content;
+
+
+
 
                 // Never prune high-weight messages (User instructions / System prompt)
                 if (m.weight && m.weight >= 1.0) return { ...m, content };

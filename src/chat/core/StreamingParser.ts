@@ -146,6 +146,15 @@ export class StreamingParser {
             const searchMatch = /<search>\s*([\s\S]*?)\s*<\/search>/i.exec(innerXml);
             const replaceMatch = /<replace>\s*([\s\S]*?)\s*<\/replace>/i.exec(innerXml);
             realContent = `<search>\n${searchMatch?searchMatch[1]:''}\n</search>\n<replace>\n${replaceMatch?replaceMatch[1]:''}\n</replace>`;
+        } else if (block.action === 'read') {
+            const startMatch = /<start_line>\s*(\d+)\s*<\/start_line>/i.exec(innerXml);
+            const endMatch = /<end_line>\s*(\d+)\s*<\/end_line>/i.exec(innerXml);
+            if (startMatch) {
+                const start = startMatch[1];
+                const end = endMatch ? endMatch[1] : start;
+                block.filePath += `#L${start}-${end}`;
+            }
+            realContent = block.filePath || '';
         } else if (block.action === 'execute') {
             realContent = block.filePath || '';
         }

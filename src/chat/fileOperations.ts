@@ -83,7 +83,7 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
     // Extract path or command
     const pathMatch = /<path>(.*?)<\/path>/i.exec(innerXml);
     const commandMatch = /<command>(.*?)<\/command>/i.exec(innerXml);
-    const filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
+    let filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
 
     let content = '';
 
@@ -98,6 +98,15 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
       const replaceContent = replaceMatch ? replaceMatch[1] : '';
       
       content = `<search>\n${searchContent}\n</search>\n<replace>\n${replaceContent}\n</replace>`;
+    } else if (action === 'read') {
+      const startLineMatch = /<start_line>\s*(\d+)\s*<\/start_line>/i.exec(innerXml);
+      const endLineMatch = /<end_line>\s*(\d+)\s*<\/end_line>/i.exec(innerXml);
+      if (startLineMatch) {
+        const start = startLineMatch[1];
+        const end = endLineMatch ? endLineMatch[1] : start;
+        filePath = `${filePath}#L${start}-${end}`;
+      }
+      content = filePath;
     } else if (action === 'execute') {
       content = filePath; // command string acts as filePath
     }
@@ -120,7 +129,7 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
 
       if (nameMatch) {
          const action = nameMatch[1].trim().toLowerCase() as FileOperation['action'];
-         const filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
+         let filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
          
          let content = '';
          if (action === 'create' || action === 'write' || action === 'modify') {
@@ -129,9 +138,17 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
                content = contentMatch[1];
                if (content.endsWith('</content>')) content = content.substring(0, content.length - 10);
             }
-         } else if (action === 'replace') {
              // For streaming replace, we might only have part of search or replace, skip complex streaming or just show what we have.
              content = innerXml; 
+         } else if (action === 'read') {
+             const startMatch = /<start_line>\s*(\d+)\s*<\/start_line>/i.exec(innerXml);
+             const endMatch = /<end_line>\s*(\d+)\s*<\/end_line>/i.exec(innerXml);
+             if (startMatch) {
+                 const start = startMatch[1];
+                 const end = endMatch ? endMatch[1] : start;
+                 filePath = `${filePath}#L${start}-${end}`;
+             }
+             content = filePath;
          }
          
          ops.push({ action, filePath, content: stripMarkdownCodeBlocks(content) });

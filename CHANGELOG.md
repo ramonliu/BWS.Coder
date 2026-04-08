@@ -2,6 +2,19 @@
 
 所有顯著的更動都將記錄在此檔案中。
 
+## [0.1.21] - 協議升級與記憶穩定化 (Protocol Upgrade & Memory Stabilization) - 2026-04-09
+
+### 🚀 重大更新 (Major Updates)
+- **邁向 XML 工具調用協議 (XML Tool Call Protocol)**：全面廢棄舊式的 `[@@ action @@]` 標籤通訊，改用結構化、強健的 XML 工具調用模式。這大幅提升了指令解析的精確度，並消除了模型產出不完整標籤導致的解析錯誤。
+- **記憶管理器重構 (MemoryManager Refactoring)**：
+  - **結構化塊狀渲染 (Structured Block Rendering)**：歷史紀錄中的工具調用現在會根據來源資料重新生成有效的 XML，而非使用不穩定的正規表達式替換。
+  - **彈性資料量保鮮 (Volume-Based Freshness)**：將過去的「輪數保護」改為「資料量保護」。系統會確保最近的 **32,000 字** 對話絕對不被修剪，為 AI 提供極其穩定的短期記憶。
+  - **智慧頭尾剪裁 (Head/Tail Truncation)**：對於過長的檔案讀取結果，系統會自動保留檔案的開頭與結尾（各 1,000 字），這讓 AI 能在節省 Token 的同時，依然理解檔案的整體結構，徹底解決了反覆讀取檔案的死循環（Infinite Loop）。
+
+### 🛠️ 穩定性修正 (Stability Fixes)
+- **情境隔離優化**：修復了新 Session 會意外讀取到舊有 `findings.md` 而產生「預知記憶」的問題。現在系統鼓勵 AI 透過手動 `ls` 與 `read` 來主動探索環境。
+- **Unicode 修復計畫啟動**：針對 `Form1.cs` 中的萬國碼轉碼邏輯進行了初步審查與修復設計，解決了 `\uXXXX` 轉碼不完全的問題。
+
 ## [0.1.20] - 全球語系與使用者體驗優化 (Universal Localization & UX Improvements) - 2026-03-31
 
 ### ✨ 新增功能 (New Features)

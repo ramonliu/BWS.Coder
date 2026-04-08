@@ -24,18 +24,17 @@ You can enter the following commands directly into the chat box to control AI be
 | `/setting` | Opens the **LLM Configuration** Settings panel immediately. |
 | `/manage` | Opens the **AI Provider & Model Manager** panel immediately. |
 
-### 🤖 AI Internal Protocol Tags
-BWS.Coder uses a strict regex-based parsing protocol to execute your instructions. The AI uses these tags in its responses:
+### 🤖 XML Tool Call Protocol
+BWS.Coder now uses a robust XML-based **Tool Call Protocol** for precise and reliable file operations. This structure prevents parsing errors and ensures high-fidelity execution across different LLMs.
 
-| Tag Syntax | Function Description |
-| :--- | :--- |
-| `[@@ create:path @@]` | Creates a new file at the specified path (with full content). |
-| `[@@ modify:path @@]` | Rewrites and replaces the content of an existing file. |
-| `[@@ replace:path @@]` | Performs precise "Search & Replace" on large files. |
-| `[@@ read:path @@]` | Reads file content from disk to provide context for the AI. |
-| `[@@ execute:cmd @@]` | Executes shell commands in your terminal (e.g., `npm install`). |
-| `[@@ delete:path @@]` | Permanently deletes the specified file. |
-| `[@@DONE@@]` | AI confirms that all development and testing steps are successfully verified. |
+| Tool Name | Example XML Block | Description |
+| :--- | :--- | :--- |
+| `read` | `<tool_call><name>read</name><arguments><path>file.ts</path></arguments></tool_call>` | Reads file content with optional line ranges. |
+| `create` | `<tool_call><name>create</name><arguments><path>file.ts</path><content>...</content></arguments></tool_call>` | Creates a new file with the specified content. |
+| `modify` | `<tool_call><name>modify</name><arguments><path>file.ts</path><content>...</content></arguments></tool_call>` | Overwrites an existing file completely. |
+| `replace` | `<tool_call><name>replace</name><arguments><path>file.ts</path><search>...</search><replace>...</replace></arguments></tool_call>` | Performs precise Search & Replace. |
+| `execute` | `<tool_call><name>execute</name><arguments><command>npm test</command></arguments></tool_call>` | Executes shell commands in the terminal. |
+| `delete` | `<tool_call><name>delete</name><arguments><path>temp.js</path></arguments></tool_call>` | Deletes the specified file. |
 
 ---
 
@@ -46,9 +45,9 @@ BWS.Coder uses a strict regex-based parsing protocol to execute your instruction
 - **Group Debate (Group/Debate)**: Supports multi-persona collaboration. Different thought models (e.g., Architect, Backend, Frontend) debate and peer-review to produce more rigorous solutions.
 - **Single Mode**: Quickly solves small tasks with rapid response times.
 
-### 🧠 Intelligent Memory Management (Zero-Artifact Memory)
-- **Zero-Artifact Pruning**: A proprietary background memory pruning mechanism. When conversations exceed context limits, it stripped large code blocks without leaving "hallucination-triggering" placeholders, keeping the AI focused.
-- **Context Awareness**: Automatically filters redundant data, prioritizing the latest project structure and task progress.
+### 🧠 Intelligent Memory Management (Context Optimization)
+- **Adaptive Volume-Based Freshness**: A sophisticated memory-aware mechanism that protects the most recent 32,000 characters from any pruning, ensuring the AI maintains a perfect short-term memory of current discussions.
+- **Head/Tail Content Truncation**: When large files enter the history, the system intelligently preserves the top and bottom 1,000 characters. Most importantly, it uses **Structured Block Rendering** to generate valid XML results from history, preventing amnesia-driven infinite loops.
 
 ### 📊 Live Task Dashboard
 - **Visual Monitoring**: Provides real-time display of current task status, API consumption, model performance, and system heartbeat.

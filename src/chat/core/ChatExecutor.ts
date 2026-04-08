@@ -515,9 +515,9 @@ export abstract class ChatExecutor {
 
         // Case 3: Malformed replace block
         if (action === 'replace') {
-            const hasStart = content.includes('[@@<@@]');
-            const hasDivider = content.includes('[@@=@@]');
-            if (!hasStart || !hasDivider) {
+            const hasSearch = content.includes('<search>');
+            const hasReplace = content.includes('<replace>');
+            if (!hasSearch || !hasReplace) {
                 return t(lang, 'err_replaceFormat', filePath || (lang === 'en' ? 'path' : '路徑'));
             }
         }

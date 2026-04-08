@@ -12,11 +12,11 @@ export class PromptBuilder {
   private static getLanguagePrompt(language: SupportedLanguage): string {
     switch (language) {
       case 'zh-TW':
-        return '--- CRITICAL: You MUST respond in Traditional Chinese (繁體中文, zh-TW). This applies to your reasoning/thinking, explanations, code comments, and all non-code output. ---';
+        return '--- CRITICAL: You MUST use Traditional Chinese (zh-TW) for all final responses, explanations, and code comments. Your internal thinking (Reasoning/Thinking) can be in any language. ---';
       case 'zh-CN':
-        return '--- CRITICAL: You MUST respond in Simplified Chinese (简体中文, zh-CN). This applies to your reasoning/thinking, explanations, code comments, and all non-code output. ---';
+        return '--- CRITICAL: You MUST use Simplified Chinese (zh-CN) for all final responses, explanations, and code comments. Your internal thinking (Reasoning/Thinking) can be in any language. ---';
       default:
-        return '--- CRITICAL: You MUST respond in English. This applies to your reasoning/thinking, explanations, code comments, and all non-code output. ---';
+        return '--- CRITICAL: You MUST use English for all final responses, explanations, and code comments. ---';
     }
   }
 
@@ -183,7 +183,7 @@ Get straight to the point in your responses and avoid greetings or small talk.`;
     // If basePrompt is provided, it usually contains the ActionFormat.md. 
     // We make sure identity and core capability are always present.
     const finalBase = basePrompt ? `${basePrompt}` : `${identity}`;
-    return `${identity}\n\n${finalBase}\n\n${coreCapability}\n\n${langPrompt}`;
+    return `${identity}\n\n${langPrompt}\n\n${finalBase}\n\n${coreCapability}`;
   }
 
   // [2026-03-27] [Enhance Workflow Prompts] - Require clear persona definitions in generate  // [2026-03-27] [Fix-PlanQuality] - Add anti-garbage rules to prevent repeated words and unfilled placeholders

@@ -71,17 +71,15 @@ You MUST read and act on this result before continuing.
   </arguments>
 </tool_call>
 
-- **`read`**: Read file content. Use `start_line` / `end_line` for partial reads.
-  - **Single Line**: Set `start_line` and `end_line` to the same value.
-  - **Line Range**: Set `start_line` and `end_line` to define the range.
-  - **TRUNCATION**: If the file is too large (>50 lines), it will be truncated. You **MUST** use line ranges to read further if necessary.
+- **`read`**: Read file content or list directory structure.
+  - **Directory Listing**: Set `<path>` to `.` or any directory path to get a list of its contents.
+  - **File Content**: Read content using `start_line` / `end_line` for partial reads.
+  - **TRUNCATION**: If a file/list is too large, it will be truncated. Use line ranges if needed.
 <tool_call>
   <name>read</name>
   <tool_call_id>44444444</tool_call_id>
   <arguments>
-    <path>src/utils/locale.ts</path>
-    <start_line>1</start_line>
-    <end_line>50</end_line>
+    <path>.</path>
   </arguments>
 </tool_call>
 
@@ -99,16 +97,15 @@ You MUST read and act on this result before continuing.
   <name>execute</name>
   <tool_call_id>55555555</tool_call_id>
   <arguments>
-    <command>npm run test</command>
+    <command>ls -F</command>
   </arguments>
 </tool_call>
 
-  **Unity Example**:
 <tool_call>
   <name>execute</name>
   <tool_call_id>66666666</tool_call_id>
   <arguments>
-    <command>Start-Process -FilePath "Unity.exe" -ArgumentList "-batchmode", "-projectPath", ".", "-executeMethod", "Build", "-quit", "-logFile", "-" -Wait -NoNewWindow</command>
+    <command>npm run build</command>
   </arguments>
 </tool_call>
 
@@ -153,6 +150,8 @@ You MUST read and act on this result before continuing.
 ### 📋 OPERATING GUIDELINES
 - **Act, Don't Announce**: Just emit the tool call blocks directly.
 - **2-Action Rule**: Update `findings.md` after every 2 file read/search operations.
+- **Exploration First**: For **Code Review** or any task with unknown structure, the FIRST action MUST be `read .` or `execute ls`.
+- **Response Language**: Use the user's target language (e.g., Traditional Chinese) for all final responses, explanations, and code comments. Your internal thinking can be in any language.
 - **Phase Updates**: Update `task_plan.md` and `progress.md` after completing a Phase.
 - **Done Signal**: Output `<DONE/>` ONLY when all tasks are finished AND verified by terminal output.
 - **Sequential Calls**: Emit tool calls one at a time and wait for each result before proceeding.

@@ -249,7 +249,7 @@ export type LocaleStrings = {
 const locales: Record<SupportedLang, LocaleStrings> = {
     'zh-TW': {
         planningAutoInitTitle: '[規劃系統] 專案核心規劃檔案已建立',
-        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` initialized. [AI Instruction: These files are your "External Memory". You MUST read them before every turn and update them proactively as you make progress.]\n\n輸入 \`/handover\` 可產生交接摘要。',
+        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` initialized. These files are your "External Memory". Their content is already provided in your context. You MUST proactively **update** them as you make progress or findings.\n\n輸入 \`/handover\` 可產生交接摘要。',
         planningManualInitTitle: '[規劃系統] 🚀 專案規劃模板已建立',
         planningManualInitBody: '已建立 \`task_plan.md\`、\`findings.md\`、\`progress.md\`。[AI Instruction: These serve as your project state. Maintain them strictly to ensure continuity across sessions.]',
         planningNoWorkspace: '[規劃系統] ❌ 初始化失敗：請先在 VS Code 開啟一個資料夾 (Workspace)。',
@@ -485,7 +485,7 @@ const locales: Record<SupportedLang, LocaleStrings> = {
     },
     'zh-CN': {
         planningAutoInitTitle: '[规划系统] 🗂️ 已自动初始化项目核心规划文件',
-        planningAutoInitBody: '\`task_plan.md\`、\`findings.md\`、\`progress.md\` 已创建于根目录。这些文件是您的“外部记忆”，在每次对话开始前均会自动加载。您必须：\n1. 随时读取这些文件以掌握全局进度。\n2. 在进行重大决策或阶段完成后，主动更新这些文件。\n输入 \`/handover\` 可生成交接摘要。',
+        planningAutoInitBody: '\`task_plan.md\`、\`findings.md\`、\`progress.md\` 已创建于根目录。这些文件是您的“外部记忆”，其内容已自动包含在您的 Context 中。您必须随时更新这些文件以记录进度，并在重大决策或阶段完成后主动维护这些记录。\n输入 \`/handover\` 可生成交接摘要。',
         planningManualInitTitle: '[规划系统] 🚀 项目规划模板已创建',
         planningManualInitBody: '已在根目录创建 \`task_plan.md\`、\`findings.md\`、\`progress.md\`。\n这些是您的外部记忆库。请主动维护这些文件，确保项目进度、技术发现与执行日志始终保持最新，以维持跨对话的记忆连续性。',
         planningNoWorkspace: '[规划系统] ❌ 初始化失败：请先在 VS Code 中打开一个文件夹 (Workspace)。',
@@ -721,7 +721,7 @@ const locales: Record<SupportedLang, LocaleStrings> = {
     },
     'en': {
         planningAutoInitTitle: '[Planning System] 🗂️ Project planning files initialized',
-        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` created in root. These are your "External Memory", auto-loaded before every turn. You MUST:\n1. Read them to maintain project context.\n2. Update them proactively as you make progress or findings.\nType \`/handover\` for a summary.',
+        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` created in root. These are your "External Memory", Their content is already provided in your context. You MUST proactively **update** them as you make progress or findings.\nType \`/handover\` for a summary.',
         planningManualInitTitle: '[Planning System] 🚀 Planning templates created',
         planningManualInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` created in root.\nThese serve as your external state. You are responsible for keeping them updated to ensure continuity across sessions.',
         planningNoWorkspace: '[Planning System] ❌ Initialization failed: Please open a folder (Workspace) in VS Code first.',

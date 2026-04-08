@@ -301,7 +301,23 @@ export async function readFileAction(filePath: string, displayPath?: string): Pr
     }
     const stat = fs.statSync(actualPath);
     if (stat.isDirectory()) {
-      return { success: false, action: 'read', filePath, error: t(getLang(), 'err_isDirectory') };
+      // [2026-04-09] Feature - Support directory listing via 'read' tool
+      const items = fs.readdirSync(actualPath, { withFileTypes: true });
+      items.sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      let structure = `[Directory Structure: ${actualPath}]\n`;
+      const ignoreList = ['.git', 'node_modules', 'dist', 'out', '.vscode', '.bws.coder', 'bin', 'obj'];
+      
+      for (const item of items) {
+        if (ignoreList.includes(item.name)) continue;
+        structure += `${item.isDirectory() ? '📁' : '📄'} ${item.name}${item.isDirectory() ? '/' : ''}\n`;
+      }
+      
+      return { success: true, action: 'read', filePath, output: structure };
     }
     const fullContent = fs.readFileSync(actualPath, 'utf-8');
     const lines = fullContent.split(/\r?\n/);

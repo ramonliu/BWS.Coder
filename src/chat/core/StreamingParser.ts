@@ -103,9 +103,12 @@ export class StreamingParser {
                     this.state = 'TEXT';
                 } else {
                     // Peek ahead to grab name and path early for UI rendering while streaming
-                    if (this.currentActionBlock!.action === 'pending' || !this.currentActionBlock!.filePath) {
+                    if (this.currentActionBlock!.action === 'pending' || !this.currentActionBlock!.filePath || !this.currentActionBlock!.toolCallId) {
                         const nameMatch = this.buffer.match(/<name>\s*(.*?)\s*<\/name>/i);
                         if (nameMatch) this.currentActionBlock!.action = nameMatch[1].toLowerCase();
+                        
+                        const idMatch = this.buffer.match(/<tool_call_id>\s*(.*?)\s*<\/tool_call_id>/i);
+                        if (idMatch) this.currentActionBlock!.toolCallId = idMatch[1];
                         
                         const pathMatch = this.buffer.match(/<path>\s*(.*?)\s*<\/path>/i);
                         const cmdMatch = this.buffer.match(/<command>\s*(.*?)\s*<\/command>/i);
@@ -133,6 +136,9 @@ export class StreamingParser {
         
         const nameMatch = /<name>\s*(.*?)\s*<\/name>/i.exec(innerXml);
         if (nameMatch) block.action = nameMatch[1].toLowerCase();
+
+        const idMatch = /<tool_call_id>\s*(.*?)\s*<\/tool_call_id>/i.exec(innerXml);
+        if (idMatch) block.toolCallId = idMatch[1];
 
         const pathMatch = /<path>\s*(.*?)\s*<\/path>/i.exec(innerXml);
         const cmdMatch = /<command>\s*(.*?)\s*<\/command>/i.exec(innerXml);

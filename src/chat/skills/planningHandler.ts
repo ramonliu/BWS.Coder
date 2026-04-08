@@ -162,7 +162,7 @@ Explain what areas are prone to misjudgment and which directions have already be
       contextMsg += `\n\n=== [Technical Decisions & Findings (findings.md)] ===\n${fs.readFileSync(findingsPath, 'utf8')}\n====================\n`;
     }
     if (contextMsg) {
-      contextMsg = `\n\n[System Notification: The following are your PROJECT PLANNING FILES (External Memory). They represent the source of truth for your current state and progress. You MUST:\n1. Read these blocks to understand the "working memory" of the project.\n2. PROACTIVELY use the \`replace\` or \`modify\` actions to update \`task_plan.md\` or \`progress.md\` as soon as you complete a task or change phases.\n3. Update \`findings.md\` immediately (2-Action Rule) after discovering new technical patterns, API details, or resolving complex bugs.\n4. Ensure consistency between your actions and these records to maintain seamless multi-turn execution.]` + contextMsg;
+      contextMsg = `\n\n[System Notification: The following are your PROJECT PLANNING FILES (External Memory). They are already provided in your context. You MUST:\n1. Use these records to maintain the "working memory" of the project.\n2. PROACTIVELY update \`task_plan.md\` or \`progress.md\` as soon as you complete a task or change phases.\n3. Update \`findings.md\` immediately (2-Action Rule) after discovering new patterns or resolving bugs.\n4. Ensure your actions and these records remain synchronized.]` + contextMsg;
     }
     return contextMsg;
   }

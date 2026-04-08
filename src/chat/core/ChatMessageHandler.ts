@@ -121,6 +121,14 @@ export class ChatMessageHandler {
             // 3. Dynamic Planning Context (task_plan.md, findings.md)
             projectContext += PlanningHandler.getDynamicContext(workspacePath);
 
+            // [2026-04-09] [Anti-Hallucination] - Add reminder for long conversations to keep AI grounded
+            if (service.messages && service.messages.length > 10) {
+                const reminder = outputLang === 'zh-TW' 
+                    ? "\n\n[System Guard] Conversation is long. Please:\n1. Prioritize referencing findings.md to avoid redundant operations.\n2. **YOU MUST maintain your response language** as Traditional Chinese (zh-TW) for all explanations and outputs."
+                    : "\n\n[System Guard] Conversation is long. Please:\n1. Prioritize referencing findings.md to avoid redundant operations.\n2. **YOU MUST maintain your response language** (e.g. your current target language) for all explanations and outputs.";
+                projectContext += reminder;
+            }
+
             // [2026-03-28] [Task-AntiHallucination] - Inject project 2-level structure to prevent hallucination
             // [2026-04-09] [REMOVED] - Disabling automatic structure injection to force AI to explore the workspace manually.
             /*

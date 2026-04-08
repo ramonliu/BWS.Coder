@@ -38,6 +38,7 @@ export interface MessageBlock {
   isClosed?: boolean;     // Has it received entirely? (e.g. eof received)
   isPending?: boolean;    // Is it still being modified/streamed/executed?
   id: string;             // Unique block ID for rendering key
+  toolCallId?: string;    // [2026-04-09] Captured ID from AI's <tool_call_id> tag
 }
 
 export interface ChatMessage {

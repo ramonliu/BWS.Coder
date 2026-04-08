@@ -25,9 +25,23 @@ export class MemoryManager {
         // [2026-04-08] Head/Tail Truncation for non-fresh messages
         let displayContent = rawContent;
         if (!isFresh && rawContent.length > 2000) {
-            const head = rawContent.slice(0, 1000);
-            const tail = rawContent.slice(-1000);
-            displayContent = `${head}\n\n... (Content truncated to save tokens. Middle ${rawContent.length - 2000} chars hidden) ...\n\n${tail}`;
+            // [2026-04-09] [Guard] - Avoid middle-truncation for critical state files as the middle often contains the most recent updates
+            const isStateFile = path.toLowerCase().includes('findings.md') || 
+                               path.toLowerCase().includes('task_plan.md') || 
+                               path.toLowerCase().includes('progress.md');
+            
+            if (isStateFile) {
+                // For state files, we prefer showing the tail (most recent) if we must truncate, 
+                // but ideally we keep more of it.
+                displayContent = rawContent.slice(-Math.min(rawContent.length, 5000));
+                if (rawContent.length > 5000) {
+                    displayContent = `... (Old history truncated) ...\n\n${displayContent}`;
+                }
+            } else {
+                const head = rawContent.slice(0, 1000);
+                const tail = rawContent.slice(-1000);
+                displayContent = `${head}\n\n... (Content truncated to save tokens. Middle ${rawContent.length - 2000} chars hidden) ...\n\n${tail}`;
+            }
         }
 
         let internalTags = '';
@@ -100,25 +114,39 @@ export class MemoryManager {
                 }
             }
 
+            // [2026-04-09] [State-Protection] - Identify if message is related to critical state files
+            const isStateRelated = m.content.toLowerCase().includes('findings.md') || 
+                                  m.content.toLowerCase().includes('task_plan.md') || 
+                                  m.content.toLowerCase().includes('progress.md') ||
+                                  (m.blocks && m.blocks.some(b => b.filePath && (
+                                      b.filePath.toLowerCase().includes('findings.md') || 
+                                      b.filePath.toLowerCase().includes('task_plan.md') || 
+                                      b.filePath.toLowerCase().includes('progress.md')
+                                  )));
+
+            if (isStateRelated) {
+                m.weight = 1.0; // Protect state updates from being pruned
+            }
+
             // Turn-based decay: messages older than 20 turns decay by 20%
             const age = messages.length - 1 - index;
             if (age > 20 && m.weight < 1.0) {
-                m.weight *= 0.8;
+                // [2026-04-09] [Guard] - Do not decay if the message contains a completion signal
+                const isCompletion = m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]') || m.content.includes('<DONE/>');
+                if (!isCompletion) {
+                    m.weight *= 0.8;
+                }
             }
         });
     }
 
-    /**
-     * Prunes or summarizes messages to fit within a context budget.
-     * Returns a new array of messages for the LLM payload.
-     */
     public static prune(messages: ChatMessage[], maxCharsPerMessage: number = 20000): ChatMessage[] {
         const config = vscode.workspace.getConfiguration('bwsCoder');
-        const maxTotalChars = config.get<number>('maxMemoryBudget') || 100000;
+        const maxTotalChars = config.get<number>('maxMemoryBudget') || 150000;
 
-        // [2026-04-08] [Volume-Based Freshness] - Pre-calculate which messages are "fresh" based on data volume
-        // We protect the most recent ~32000 chars (approx 8000 tokens) from any pruning.
-        const SAFE_FRESH_VOLUME = 32000;
+        // [2026-04-09] [Volume-Based Freshness] - Pre-calculate which messages are "fresh" based on data volume
+        // We protect a portion (e.g. 30%) of the budget as "SAFE_FRESH_VOLUME" to avoid middle-truncation for recent items.
+        const SAFE_FRESH_VOLUME = Math.floor(maxTotalChars * 0.3);
         let cumulativeVolume = 0;
         const freshStatus = new Array(messages.length).fill(false);
         for (let i = messages.length - 1; i >= 0; i--) {
@@ -178,8 +206,13 @@ export class MemoryManager {
                 .filter(({ m, originalIndex }) => {
                     if (m.role === 'system') return false; // Never touch system prompts
                     if (m.weight && m.weight >= 1.0) return false; // Skip protected high-weight user commands
-                    if (originalIndex >= processed.length - 2) return false; // Never touch the absolute latest interaction turn
+                    if (originalIndex >= processed.length - 1) return false; // Never touch the absolute latest interaction turn
                     if (m.isPruned && m.pruneReason === 'global_budget_limit') return false;
+                    
+                    // [2026-04-09] [Guard] - Protect fresh and short messages
+                    if (freshStatus[originalIndex]) return false; // Protect recent volume
+                    if ((m.content?.length || 0) < 1000) return false; // Don't archive short messages (too little savings, high context cost)
+                    
                     return (m.content?.length || 0) > 50;
                 });
 

@@ -420,10 +420,42 @@ export abstract class ChatExecutor {
             return { action: op.action, success: false, error: validationError, filePath: op.filePath || 'unknown' };
         }
 
+        // [2026-04-09] [Redundancy-Guard] - Prevent loops where AI repeatedly reads the same file or lists the same directory
+        const redundancyError = this.checkRedundancy(state, op);
+        if (redundancyError) {
+            return { action: op.action, success: false, error: redundancyError, filePath: op.filePath || 'unknown' };
+        }
+
         let res: FileOpResult;
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         const cleanFilePath = op.filePath?.replace(/^(?:path:)/i, '').trim() || '';
-        const absolutePath = cleanFilePath ? (path.isAbsolute(cleanFilePath) ? cleanFilePath : path.join(workspaceRoot, cleanFilePath)) : '';
+        let absolutePath = cleanFilePath ? (path.isAbsolute(cleanFilePath) ? cleanFilePath : path.join(workspaceRoot, cleanFilePath)) : '';
+
+        // [2026-04-09] [Workspace-Isolation-Guard] - Ensure AI doesn't access files outside workspace without permission
+        if (absolutePath && workspaceRoot) {
+            const isWindows = process.platform === 'win32';
+            const normalizedRoot = isWindows ? path.normalize(workspaceRoot).toLowerCase() : path.normalize(workspaceRoot);
+            const normalizedPath = isWindows ? path.normalize(absolutePath).toLowerCase() : path.normalize(absolutePath);
+
+            if (!normalizedPath.startsWith(normalizedRoot)) {
+                const lang = getLang();
+                const confirmMsg = lang === 'zh-TW'
+                    ? `[安全性警告] AI 正在嘗試存取工作區（${workspaceRoot}）外的路徑：\n\n${absolutePath}\n\n您是否允許執行此操作？`
+                    : `[Security Warning] AI is attempting to access a path outside the workspace (${workspaceRoot}):\n\n${absolutePath}\n\nDo you allow this operation?`;
+                const allowBtn = lang === 'zh-TW' ? '允許執行' : 'Allow';
+                const denyBtn = lang === 'zh-TW' ? '拒絕存取' : 'Deny';
+
+                // Use a modal dialog for security confirmation to ensure it's not missed
+                const choice = await vscode.window.showWarningMessage(confirmMsg, { modal: true }, allowBtn, denyBtn);
+                if (choice !== allowBtn) {
+                    const errorMsg = lang === 'zh-TW'
+                        ? `[安全性攔截] 使用者拒絕了對工作區外路徑的存取請求：${absolutePath}`
+                        : `[Security Guard] Access denied by user for path outside workspace: ${absolutePath}`;
+                    console.warn(`[ChatExecutor] Security block: User denied access to ${absolutePath}`);
+                    return { action: op.action, success: false, error: errorMsg, filePath: op.filePath || 'unknown' };
+                }
+            }
+        }
 
         const release = absolutePath ? await state.acquireFileLock(absolutePath) : () => { };
         try {
@@ -440,6 +472,7 @@ export abstract class ChatExecutor {
 
         if (currentTask) {
             currentTask.addAction({
+                id: op.toolCallId,
                 action: op.action,
                 filePath: op.filePath,
                 content: op.content,
@@ -520,6 +553,46 @@ export abstract class ChatExecutor {
             if (!hasSearch || !hasReplace) {
                 return t(lang, 'err_replaceFormat', filePath || (lang === 'en' ? 'path' : '路徑'));
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * [2026-04-09] Redundancy Guard - Detects if the same discovery action is being repeated too many times.
+     */
+    private checkRedundancy(state: any, op: any): string | null {
+        // [Heuristic] We only really care about discovery-style actions that don't change state
+        if (op.action !== 'read' && op.action !== 'execute') return null;
+
+        const history = state.messages as ChatMessage[];
+        if (!history || history.length === 0) return null;
+
+        // Check the last 15 messages (approx 5-7 turns) for the exact same action and target
+        const windowSize = 15;
+        const lastMessages = history.slice(-windowSize);
+        
+        let repeatCount = 0;
+        for (const m of lastMessages) {
+            if (m.role === 'assistant' && m.blocks) {
+                const foundMatch = m.blocks.some(b => 
+                    b.type === 'action' && 
+                    b.action === op.action && 
+                    b.filePath === op.filePath &&
+                    b.content === op.content // For 'execute', the command is in content
+                );
+                if (foundMatch) repeatCount++;
+            }
+        }
+
+        if (repeatCount >= 2) {
+            const lang = getLang();
+            const msg = lang === 'zh-TW' 
+                ? `[系統守護] 檢測到重複操作：您在最近幾回合內已多次執行 '${op.action}' 於 '${op.filePath || op.content}'。請檢查之前的對話記錄與執行結果，避免重複工作並直接推進任務。`
+                : `[System Guard] Redundant action detected: You have already performed '${op.action}' on '${op.filePath || op.content}' multiple times recently. Please reference your previous findings and proceed with analysis instead of re-reading.`;
+            
+            console.warn(`[ChatExecutor] Redundancy Guard blocked action: ${op.action} on ${op.filePath || op.content} (Repeated ${repeatCount} times)`);
+            return msg;
         }
 
         return null;

@@ -413,11 +413,11 @@ export abstract class ChatExecutor {
             return { action: op.action, success: false, error: validationError, filePath: op.filePath || 'unknown' };
         }
 
-        // [2026-04-09] [Redundancy-Guard] - Prevent loops where AI repeatedly reads the same file or lists the same directory
-        const redundancyError = this.checkRedundancy(state, op);
-        if (redundancyError) {
-            return { action: op.action, success: false, error: redundancyError, filePath: op.filePath || 'unknown' };
-        }
+        // // [2026-04-09] [Redundancy-Guard] - Prevent loops where AI repeatedly reads the same file or lists the same directory
+        // const redundancyError = this.checkRedundancy(state, op);
+        // if (redundancyError) {
+        //     return { action: op.action, success: false, error: redundancyError, filePath: op.filePath || 'unknown' };
+        // }
 
         let res: FileOpResult;
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
@@ -559,40 +559,40 @@ export abstract class ChatExecutor {
     /**
      * [2026-04-09] Redundancy Guard - Detects if the same discovery action is being repeated too many times.
      */
-    private checkRedundancy(state: any, op: any): string | null {
-        // [Heuristic] We only really care about discovery-style actions that don't change state
-        if (op.action !== 'read' && op.action !== 'execute') return null;
+    // private checkRedundancy(state: any, op: any): string | null {
+    //     // [Heuristic] We only really care about discovery-style actions that don't change state
+    //     if (op.action !== 'read' && op.action !== 'execute') return null;
 
-        const history = state.messages as ChatMessage[];
-        if (!history || history.length === 0) return null;
+    //     const history = state.messages as ChatMessage[];
+    //     if (!history || history.length === 0) return null;
 
-        // Check the last 15 messages (approx 5-7 turns) for the exact same action and target
-        const windowSize = 15;
-        const lastMessages = history.slice(-windowSize);
+    //     // Check the last 15 messages (approx 5-7 turns) for the exact same action and target
+    //     const windowSize = 15;
+    //     const lastMessages = history.slice(-windowSize);
 
-        let repeatCount = 0;
-        for (const m of lastMessages) {
-            if (m.role === 'assistant' && m.blocks) {
-                const foundMatch = m.blocks.some(b =>
-                    b.type === 'action' &&
-                    b.action === op.action &&
-                    b.filePath === op.filePath &&
-                    b.content === op.content // For 'execute', the command is in content
-                );
-                if (foundMatch) repeatCount++;
-            }
-        }
+    //     let repeatCount = 0;
+    //     for (const m of lastMessages) {
+    //         if (m.role === 'assistant' && m.blocks) {
+    //             const foundMatch = m.blocks.some(b =>
+    //                 b.type === 'action' &&
+    //                 b.action === op.action &&
+    //                 b.filePath === op.filePath &&
+    //                 b.content === op.content // For 'execute', the command is in content
+    //             );
+    //             if (foundMatch) repeatCount++;
+    //         }
+    //     }
 
-        if (repeatCount >= 2) {
-            const lang = getLang();
-            const msg = lang === 'zh-TW'
-                ? `[系統守護] 檢測到重複操作：您在最近幾回合內已多次執行 '${op.action}' 於 '${op.filePath || op.content}'。請檢查之前的對話記錄與執行結果，避免重複工作並直接推進任務。`
-                : `[System Guard] Redundant action detected: You have already performed '${op.action}' on '${op.filePath || op.content}' multiple times recently. Please reference your previous findings and proceed with analysis instead of re-reading.`;
+    //     if (repeatCount >= 2) {
+    //         const lang = getLang();
+    //         const msg = lang === 'zh-TW'
+    //             ? `[系統守護] 檢測到重複操作：您在最近幾回合內已多次執行 '${op.action}' 於 '${op.filePath || op.content}'。請檢查之前的對話記錄與執行結果，避免重複工作並直接推進任務。`
+    //             : `[System Guard] Redundant action detected: You have already performed '${op.action}' on '${op.filePath || op.content}' multiple times recently. Please reference your previous findings and proceed with analysis instead of re-reading.`;
 
-            console.warn(`[ChatExecutor] Redundancy Guard blocked action: ${op.action} on ${op.filePath || op.content} (Repeated ${repeatCount} times)`);
-            return msg;
-        }
+    //         console.warn(`[ChatExecutor] Redundancy Guard blocked action: ${op.action} on ${op.filePath || op.content} (Repeated ${repeatCount} times)`);
+    //         return msg;
+    //     }
 
-        return null;
-    }
+    //     return null;
+    // }
 }

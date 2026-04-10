@@ -76,14 +76,15 @@ export class SingleChatRunner extends ChatExecutor {
                         result.hasOps = false;
                     } else if (result.hasOps) {
                         currentState = ChatState.CHATTING;
-                    } else {
-                        state.messages.push({
-                            id: state.generateId(),
-                            role: 'system',
-                            content: "You are currently in an ACTIVE EXECUTION LOOP. Plain text responses without tool call tags are PROHIBITED unless the mission objective is 100% complete and verified. If the task is not yet finished, you MUST proceed with the next <tool_call>. Output <DONE/> only when you are certain that NO further file operations or terminal commands are necessary.",
-                            timestamp: new Date()
-                        });
-                        currentState = ChatState.CHATTING;
+                        result.hasOps = false;
+                        // } else {
+                        //     state.messages.push({
+                        //         id: state.generateId(),
+                        //         role: 'system',
+                        //         content: "You are currently in an ACTIVE EXECUTION LOOP. Plain text responses without tool call tags are PROHIBITED unless the mission objective is 100% complete and verified. If the task is not yet finished, you MUST proceed with the next <tool_call>. Output <DONE/> only when you are certain that NO further file operations or terminal commands are necessary.",
+                        //         timestamp: new Date()
+                        //     });
+                        //     currentState = ChatState.CHATTING;
                     }
                 }
             }

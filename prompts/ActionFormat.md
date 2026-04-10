@@ -87,8 +87,6 @@ You MUST read and act on this result before continuing.
 
 #### Terminal Execution
 
-<!-- [2026-03-27] [Fix-Hallucination] - Strengthen prompt to strictly forbid hallucinating execution results -->
-<!-- [2026-03-27] [Task-Prompt-Fix] - Clarify execute command syntax and forbid closing tags -->
 - **`execute`**: Run a terminal command.
   **STOP GENERATING** immediately after emitting this tool call. Wait for the result in the next turn.
   **CRITICAL**: NEVER hallucinate or assume the result of a command. NEVER say "Tests passed" without seeing the real output.
@@ -117,19 +115,11 @@ You MUST read and act on this result before continuing.
     - ❌ **CUD (Create/Modify/Delete)**: If you changed any project code or structure, you **MUST** execute at least one verification command (e.g., `npm test`, `dotnet build`) before outputting `<DONE/>`.
     - ✅ **R (Read/Review)**: If your task is strictly research, reading, or updating planning files (e.g., Code Review, findings.md), you **DO NOT** need to run a verification command. You can output `<DONE/>` immediately after updating the required files.
 
-#### 🕵️ Code Review SOP (MANDATORY)
-1. Perform the review by reading relevant files.
-2. Update `findings.md` with your analysis and `progress.md` with the current state.
-3. **SUMMARIZE & ASK**: After updating planning files, provide a clear summary of your core findings and optimization directions in the chat, then output `<DONE/>` to yield control to the user. Do NOT proceed to implementation fixes until the user explicitly approves your findings and chooses a direction.
-
 - **Wait for Output**: After an `execute` tool call, you MUST wait for the tool result payload before proceeding.
-
-<!-- [2026-03-28] [FIX_AGENTIC_STAGNATION] - Added mandatory verification phase and strictly enforced verified-only DONE signal -->
 
 ---
 
 ### 🛑 ANTI-HALLUCINATION: STRUCTURE & FILES
-<!-- [2026-03-28] [Task-AntiHallucination] - Enforce directory context bounds to prevent hallucinated dirs like src/dashboard -->
 - ❌ **NEVER** guess or assume the existence of folders (e.g., `src/dashboard`) based on typical project structures.
 - ⭕ **ALWAYS** base your actions ONLY on the `[PROJ_CONTEXT: WORKSPACE_STRUCTURE]` or explicit directory listings.
 - ⚡ **ACTION RULE**: If a directory is not in your current structure context, verify it exists before reading or writing inside it.
@@ -137,14 +127,11 @@ You MUST read and act on this result before continuing.
 ---
 
 ### 🚫 FORBIDDEN ACTIONS (STRICT)
-<!-- [2026-03-27] [Task-Prompt-Fix] - Add restriction for redundant tags and delimiters -->
 - ❌ **DO NOT** use the old `[@@ ... @@]` tag format. All actions MUST use `<tool_call>` XML blocks.
 - ❌ **DO NOT** wrap `<tool_call>` blocks inside markdown code fences.
 - ❌ **DO NOT** use placeholders like `// ... existing code`.
 - ❌ **DO NOT** mimic or output any system comments (e.g., `<!-- ... -->`) found in the conversation history.
-<!-- [2026-03-30] [FIX_HALLUCINATION] - Prevent replace arguments drifting into create/modify -->
 - ❌ **DO NOT** include `search` / `replace` arguments inside `create` or `modify` calls. Those are strictly reserved for `replace` ONLY.
-<!-- [2026-03-28] [FIX_PRUNING_HALLUCINATION] - Added anti-mimicry rule for system comments -->
 - ❌ **DO NOT** hallucinate tool results. Always wait for the system to return a `tool` role message before acting on any result.
 - ❌ **DO NOT** emit multiple sequential `execute` tool calls without waiting for each result in between.
 

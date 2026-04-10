@@ -80,7 +80,7 @@ export class SettingsManagerPanel {
             'temperature', 'maxTokens', 'language', 'debugMode',
             'saveRawStream', 'saveAiRequest', 'groupChatMaxRounds',
             'maxTurnsPerStep', 'heartbeatTimeout', 'autoFallback',
-            'maxMemoryBudget'
+            'maxMemoryBudget', 'topP', 'topK'
         ];
         
         const tasks = properties.map(key => bwsConfig.update(key, undefined, target));
@@ -109,7 +109,9 @@ export class SettingsManagerPanel {
             maxTurnsPerStep: bwsConfig.get('maxTurnsPerStep', 30),
             heartbeatTimeout: bwsConfig.get('heartbeatTimeout', 30),
             autoFallback: bwsConfig.get('autoFallback', false),
-            maxMemoryBudget: bwsConfig.get('maxMemoryBudget', 5000)
+            maxMemoryBudget: bwsConfig.get('maxMemoryBudget', 5000),
+            topP: bwsConfig.get('topP', 0.95),
+            topK: bwsConfig.get('topK', 64)
         };
         
         return SettingsHtml.getHtml(this.getI18nBundle(lang), config);
@@ -119,6 +121,7 @@ export class SettingsManagerPanel {
         const bundle: any = {};
         const keys: (keyof LocaleStrings)[] = [
             'set_title', 'set_temperature', 'set_temperature_desc',
+            'set_topP', 'set_topP_desc', 'set_topK', 'set_topK_desc',
             'set_maxTokens', 'set_maxTokens_desc', 'set_language', 'set_language_desc',
             'set_debugMode', 'set_debugMode_desc', 'set_saveRawStream', 'set_saveRawStream_desc',
             'set_saveAiRequest', 'set_saveAiRequest_desc', 'set_groupChatMaxRounds', 'set_groupChatMaxRounds_desc',

@@ -188,65 +188,73 @@ export async function replaceFileContent(filePath: string, patchContent: string)
     if (!fs.existsSync(filePath)) {
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceFileNotFound') };
     }
-    let startLine = -1;
-    let endLine = -1;
-    const lineMatch = patchContent.match(/L(\d+)-L?(\d+):/i);
-    let cleanPatch = patchContent;
-    if (lineMatch) {
-      startLine = parseInt(lineMatch[1]);
-      endLine = parseInt(lineMatch[2]);
-      cleanPatch = patchContent.replace(lineMatch[0], '').trim();
-    }
-    const startMatch = cleanPatch.match(getReplaceOldRegex());
-    const dividerMatch = cleanPatch.match(getReplaceDivRegex());
-    const endMatch = cleanPatch.match(getReplaceNewRegex());
+
+    const startMatch = patchContent.match(getReplaceOldRegex());
+    const dividerMatch = patchContent.match(getReplaceDivRegex());
+    const endMatch = patchContent.match(getReplaceNewRegex());
     if (!startMatch || !dividerMatch || !endMatch) {
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceTagsMissing') };
     }
+
     const startIdx = startMatch.index!;
     const dividerIdx = dividerMatch.index!;
     const endIdx = endMatch.index!;
     if (dividerIdx < startIdx || endIdx < dividerIdx) {
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceTagsOrder') };
     }
-    let oldCode = cleanPatch.substring(startIdx + startMatch[0].length, dividerIdx).trim();
-    let newCode = cleanPatch.substring(dividerIdx + dividerMatch[0].length, endIdx).trim();
-    
-    // Normalize newlines to \n to prevent mismatches between \r\n and \n
-    oldCode = oldCode.replace(/\r/g, '').replace(/^\n+|\n+$/g, '');
-    newCode = newCode.replace(/\r/g, '').replace(/^\n+|\n+$/g, '');
-    
-    let fileContent = fs.readFileSync(filePath, 'utf-8');
-    const originalHasCR = fileContent.includes('\r\n');
-    fileContent = fileContent.replace(/\r/g, ''); // Normalize file content
-    
-    const fileLines = fileContent.split('\n');
-    
-    if (startLine > 0) {
-      const searchStart = Math.max(0, startLine - 5);
-      const searchEnd = Math.min(fileLines.length, endLine + 5);
-      const subContent = fileLines.slice(searchStart, searchEnd).join('\n');
-      if (subContent.includes(oldCode)) {
-        // Use split().join() to safely replace without triggering JS string replacement patterns like $$ or $&
-        const newSubContent = subContent.split(oldCode).join(newCode);
-        let newFullLines = [...fileLines.slice(0, searchStart), ...newSubContent.split('\n'), ...fileLines.slice(searchEnd)].join('\n');
-        
-        if (originalHasCR) newFullLines = newFullLines.replace(/\n/g, '\r\n');
-        fs.writeFileSync(filePath, newFullLines, 'utf-8');
-        return { success: true, action: 'replace', filePath };
-      }
-    }
-    
+
+    // Extract search/replace content, normalize line endings, strip edge blank lines only
+    const normLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const stripEdge = (s: string) => s.replace(/^\n+|\n+$/g, '');
+
+    let oldCode = stripEdge(normLF(patchContent.substring(startIdx + startMatch[0].length, dividerIdx)));
+    let newCode = stripEdge(normLF(patchContent.substring(dividerIdx + dividerMatch[0].length, endIdx)));
+
+    // Read file, detect original line endings, normalize to LF for matching
+    const fileRaw = fs.readFileSync(filePath, 'utf-8');
+    const originalHasCR = fileRaw.includes('\r\n');
+    const fileContent = normLF(fileRaw);
+
+    const writeBack = (content: string): FileOpResult => {
+      const out = originalHasCR ? content.replace(/\n/g, '\r\n') : content;
+      fs.writeFileSync(filePath, out, 'utf-8');
+      return { success: true, action: 'replace', filePath };
+    };
+
+    // ── Strategy 1: Exact match ──────────────────────────────────────────────
     if (fileContent.includes(oldCode)) {
       const parts = fileContent.split(oldCode);
       if (parts.length > 2) {
         return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceMultipleFound') };
       }
-      
-      let newFileContent = fileContent.split(oldCode).join(newCode);
-      if (originalHasCR) newFileContent = newFileContent.replace(/\n/g, '\r\n');
-      fs.writeFileSync(filePath, newFileContent, 'utf-8');
-      return { success: true, action: 'replace', filePath };
+      return writeBack(parts.join(newCode));
+    }
+
+    // ── Strategy 2: Line-by-line fuzzy match (ignores trailing whitespace) ───
+    // Each line in the search block is trimEnd()-compared against the file.
+    // On match, the original file lines are replaced (preserving indentation
+    // of non-replaced content), using the new block as-is.
+    const fileLines = fileContent.split('\n');
+    const oldLines = oldCode.split('\n').map(l => l.trimEnd());
+    const newLines = newCode.split('\n');
+    const n = oldLines.length;
+
+    let matchStart = -1;
+    outer: for (let i = 0; i <= fileLines.length - n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (fileLines[i + j].trimEnd() !== oldLines[j]) { continue outer; }
+      }
+      matchStart = i;
+      break;
+    }
+
+    if (matchStart >= 0) {
+      const resultLines = [
+        ...fileLines.slice(0, matchStart),
+        ...newLines,
+        ...fileLines.slice(matchStart + n),
+      ];
+      return writeBack(resultLines.join('\n'));
     }
 
     return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceNotFound') };

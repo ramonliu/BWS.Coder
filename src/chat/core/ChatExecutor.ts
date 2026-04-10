@@ -8,6 +8,7 @@ import { FileOpResult, createOrOverwriteFile, replaceFileContent, deleteFile, ex
 import { Task, TaskState } from './Task';
 import { t, getLang } from '../../utils/locale';
 import { StreamingParser } from './StreamingParser';
+import { PlanningHandler } from '../skills/planningHandler';
 
 export abstract class ChatExecutor {
     constructor(protected context: vscode.ExtensionContext) { }
@@ -447,6 +448,11 @@ export abstract class ChatExecutor {
                     return { action: op.action, success: false, error: errorMsg, filePath: op.filePath || 'unknown' };
                 }
             }
+        }
+
+        // [2026-04-10] [Task-AutoInit-Executor] - Ensure planning files exist before any state-changing operation
+        if (workspaceRoot && (op.action === 'create' || op.action === 'modify' || op.action === 'replace')) {
+            PlanningHandler.ensurePlanningFiles(workspaceRoot);
         }
 
         const release = absolutePath ? await state.acquireFileLock(absolutePath) : () => { };

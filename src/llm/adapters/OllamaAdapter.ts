@@ -19,7 +19,9 @@ export class OllamaAdapter implements ILLMAdapter {
         model: string, 
         endpoint: string,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        topP?: number,
+        topK?: number
     }) {
         const { model, endpoint } = options;
         const url = `${endpoint.replace(/\/+$/, '')}/api/chat`;
@@ -33,6 +35,8 @@ export class OllamaAdapter implements ILLMAdapter {
         };
         if (options.temperature !== undefined) body.options.temperature = options.temperature;
         if (options.maxTokens !== undefined) body.options.num_predict = options.maxTokens;
+        if (options.topP !== undefined) body.options.top_p = options.topP;
+        if (options.topK !== undefined) body.options.top_k = options.topK;
 
         return {
             url,

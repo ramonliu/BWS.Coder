@@ -117,9 +117,21 @@
       "properties": {
         "bwsCoder.temperature": {
           "type": "number",
-          "default": 0.3,
+          "default": 1.0,
           "description": "Generation temperature (0-1, lower is more precise)",
           "order": 1
+        },
+        "bwsCoder.topP": {
+          "type": "number",
+          "default": 0.95,
+          "description": "Top P (Nucleus Sampling): 0-1, 0.95 is recommended",
+          "order": 1.1
+        },
+        "bwsCoder.topK": {
+          "type": "number",
+          "default": 64,
+          "description": "Top K Sampling: Limits potential words to top K likely candidates",
+          "order": 1.2
         },
         "bwsCoder.maxTokens": {
           "type": "number",

@@ -98,6 +98,23 @@ export class ChatMessageHandler {
                 if (a.type === 'image') images.push(a.content.split(',')[1] || a.content);
             });
         }
+        
+        // [2026-04-10] [Fix-Planning-Init-Order] - Ensure planning files exist before building project context
+        if (workspaceFolders && workspaceFolders.length > 0) {
+            const workspacePath = workspaceFolders[0].uri.fsPath;
+            const planPath = path.join(workspacePath, 'task_plan.md');
+            if (!fs.existsSync(planPath)) {
+                PlanningHandler.ensurePlanningFiles(workspacePath);
+                const autoInitMsg: ChatMessage = {
+                    id: service.generateId(),
+                    role: 'system',
+                    content: `${t(outputLang, 'planningAutoInitTitle')}\n\n${t(outputLang, 'planningAutoInitBody')}`,
+                    timestamp: new Date()
+                };
+                service.messages.push(autoInitMsg);
+                service.updateWebview();
+            }
+        }
 
         // [2026-03-25] Prompt Optimization - Structured Dynamic Context
         let projectContext = '';
@@ -184,23 +201,6 @@ export class ChatMessageHandler {
         // Assemble the display system prompt for components that still need it
         systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + functionalPrompt);
 
-        /* [2026-04-10] [Task-Disable-AutoInit] - Disable auto-initialization of planning files as requested. 
-           Let the AI Agent decide when to create these files manually.*/
-        if (workspaceFolders && workspaceFolders.length > 0) {
-            const workspacePath = workspaceFolders[0].uri.fsPath;
-            const planPath = path.join(workspacePath, 'task_plan.md');
-            if (!fs.existsSync(planPath)) {
-                PlanningHandler.handlePlanCommand(workspacePath, () => service.generateId(), outputLang);
-                const autoInitMsg: ChatMessage = {
-                    id: service.generateId(),
-                    role: 'system',
-                    content: `${t(outputLang, 'planningAutoInitTitle')}\n\n${t(outputLang, 'planningAutoInitBody')}`,
-                    timestamp: new Date()
-                };
-                service.messages.push(autoInitMsg);
-                service.updateWebview();
-            }
-        }
 
 
         const needsAIPlan = trimmedText.startsWith('/plan') || text.includes('請幫實現工作流');

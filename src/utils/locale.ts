@@ -109,7 +109,7 @@ export type LocaleStrings = {
     op_replaceTagsOrder: string;
     op_replaceMultipleFound: string;
     op_replaceNotFound: string;
-    
+
     op_createPending: string;
     op_modifyPending: string;
     op_replacePending: string;
@@ -120,7 +120,7 @@ export type LocaleStrings = {
     op_executeResult: string;
     op_success: string;
     op_failedStatus: string;
-    
+
     // Commands
     cmd_executeSuccess: string;
     cmd_executeFailed: string;
@@ -221,6 +221,10 @@ export type LocaleStrings = {
     set_title: string;
     set_temperature: string;
     set_temperature_desc: string;
+    set_topP: string;
+    set_topP_desc: string;
+    set_topK: string;
+    set_topK_desc: string;
     set_maxTokens: string;
     set_maxTokens_desc: string;
     set_language: string;
@@ -248,8 +252,8 @@ export type LocaleStrings = {
 
 const locales: Record<SupportedLang, LocaleStrings> = {
     'zh-TW': {
-        planningAutoInitTitle: '[規劃系統] 專案核心規劃檔案已建立',
-        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` initialized. These files are your "External Memory". Their content is already provided in your context. You MUST proactively **update** them as you make progress or findings.\n\n輸入 \`/handover\` 可產生交接摘要。',
+        planningAutoInitTitle: '[Planning System] The project core planning file has been created.',
+        planningAutoInitBody: '\`task_plan.md\`, \`findings.md\`, and \`progress.md\` initialized. These files are your "External Memory". Their content is already provided in your context. You MUST proactively **update** them as you make progress or findings.\n\nEnter \`/handover\` to generate a handover summary.',
         planningManualInitTitle: '[規劃系統] 🚀 專案規劃模板已建立',
         planningManualInitBody: '已建立 \`task_plan.md\`、\`findings.md\`、\`progress.md\`。[AI Instruction: These serve as your project state. Maintain them strictly to ensure continuity across sessions.]',
         planningNoWorkspace: '[規劃系統] ❌ 初始化失敗：請先在 VS Code 開啟一個資料夾 (Workspace)。',
@@ -458,7 +462,11 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         // [2026-03-30] Full Localization - Settings (zh-TW)
         set_title: 'BWS.Coder 全域設定',
         set_temperature: '生成溫度 (Temperature)',
-        set_temperature_desc: '0-1，越低越精確',
+        set_temperature_desc: '0-1，越低越精確，目前設為 1.0',
+        set_topP: '核取採樣 (Top P)',
+        set_topP_desc: '0-1，控制多樣性，建議 0.95',
+        set_topK: '隨機採樣 (Top K)',
+        set_topK_desc: '限制輸出的候選詞數量，建議 64',
         set_maxTokens: '最大 Token 數量',
         set_maxTokens_desc: '單次輸出的最大數量',
         set_language: '介面與回應語言 (Language)',
@@ -694,7 +702,11 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         // [2026-03-30] Full Localization - Settings (zh-CN)
         set_title: 'BWS.Coder 全局设置',
         set_temperature: '生成温度 (Temperature)',
-        set_temperature_desc: '0-1，越低越精确',
+        set_temperature_desc: '0-1，越低越精确，目前设为 1.0',
+        set_topP: '核取采样 (Top P)',
+        set_topP_desc: '0-1，控制多样性，建议 0.95',
+        set_topK: '随机采样 (Top K)',
+        set_topK_desc: '限制输出的候选词数量，建议 64',
         set_maxTokens: '最大 Token 数量',
         set_maxTokens_desc: '单次输出的最大数量',
         set_language: '界面与响应语言 (Language)',
@@ -930,7 +942,11 @@ const locales: Record<SupportedLang, LocaleStrings> = {
         // [2026-03-30] Full Localization - Settings (en)
         set_title: 'BWS.Coder Global Settings',
         set_temperature: 'Generation Temperature',
-        set_temperature_desc: '0-1, lower is more precise',
+        set_temperature_desc: '0-1, lower is more precise, default is 1.0',
+        set_topP: 'Top P (Nucleus Sampling)',
+        set_topP_desc: '0-1, controls diversity, recommended 0.95',
+        set_topK: 'Top K Sampling',
+        set_topK_desc: 'Limits potential words to top K candidates, recommended 64',
         set_maxTokens: 'Max Output Tokens',
         set_maxTokens_desc: 'Max tokens per single output',
         set_language: 'Display & Response Language',

@@ -20,7 +20,9 @@ export class GeminiAdapter implements ILLMAdapter {
         model: string, 
         endpoint: string,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        topP?: number,
+        topK?: number
     }) {
         const { keys, currentIndex, model } = options;
         const key = keys[currentIndex];
@@ -46,6 +48,8 @@ export class GeminiAdapter implements ILLMAdapter {
         const generationConfig: any = {};
         if (options.temperature !== undefined) generationConfig.temperature = options.temperature;
         if (options.maxTokens !== undefined) generationConfig.maxOutputTokens = options.maxTokens;
+        if (options.topP !== undefined) generationConfig.topP = options.topP;
+        if (options.topK !== undefined) generationConfig.topK = options.topK;
 
         return {
             url,

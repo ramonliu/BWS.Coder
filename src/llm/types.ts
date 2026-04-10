@@ -15,7 +15,9 @@ export interface ILLMAdapter {
     model: string, 
     endpoint: string,
     temperature?: number,
-    maxTokens?: number
+    maxTokens?: number,
+    topP?: number,
+    topK?: number
   }): { url: string, body: any, headers: any };
   extractResponse(json: any): { content?: string, thinking?: string };
 }

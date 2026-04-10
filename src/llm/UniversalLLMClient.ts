@@ -106,6 +106,8 @@ export class UniversalLLMClient implements ILLMClient {
                 const configVsc = vscode.workspace.getConfiguration('bwsCoder');
                 const temperature = configVsc.get<number>('temperature');
                 const maxTokens = configVsc.get<number>('maxTokens');
+                const topP = configVsc.get<number>('topP');
+                const topK = configVsc.get<number>('topK');
 
                 const { url, body, headers } = this.adapter.prepareRequest(messages, images, {
                     keys,
@@ -113,7 +115,9 @@ export class UniversalLLMClient implements ILLMClient {
                     model: this.config.model,
                     endpoint: this.config.endpoint,
                     temperature,
-                    maxTokens
+                    maxTokens,
+                    topP,
+                    topK
                 });
 
                 console.info(`[${providerName}] >>> 發送請求至: ${url} (Key 組: ${currentIndex + 1})`);

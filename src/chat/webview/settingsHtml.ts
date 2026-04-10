@@ -88,6 +88,28 @@ export class SettingsHtml {
                     <input type="number" id="maxTokens" value="${config.maxTokens}" step="256" min="1">
                 </div>
             </div>
+
+            <!-- Top P -->
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name" id="set_topP">${i18n.set_topP}</div>
+                    <div class="setting-desc" id="set_topP_desc">${i18n.set_topP_desc}</div>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="topP" value="${config.topP}" step="0.05" min="0" max="1">
+                </div>
+            </div>
+
+            <!-- Top K -->
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name" id="set_topK">${i18n.set_topK}</div>
+                    <div class="setting-desc" id="set_topK_desc">${i18n.set_topK_desc}</div>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="topK" value="${config.topK}" step="1" min="1">
+                </div>
+            </div>
         </div>
 
         <div class="section">
@@ -208,6 +230,10 @@ export class SettingsHtml {
             document.getElementById('set_temperature_desc').textContent = i18n.set_temperature_desc;
             document.getElementById('set_maxTokens').textContent = i18n.set_maxTokens;
             document.getElementById('set_maxTokens_desc').textContent = i18n.set_maxTokens_desc;
+            document.getElementById('set_topP').textContent = i18n.set_topP;
+            document.getElementById('set_topP_desc').textContent = i18n.set_topP_desc;
+            document.getElementById('set_topK').textContent = i18n.set_topK;
+            document.getElementById('set_topK_desc').textContent = i18n.set_topK_desc;
             document.getElementById('set_debugMode').textContent = i18n.set_debugMode;
             document.getElementById('set_debugMode_desc').textContent = i18n.set_debugMode_desc;
             document.getElementById('set_saveRawStream').textContent = i18n.set_saveRawStream;
@@ -239,6 +265,8 @@ export class SettingsHtml {
                 language: document.getElementById('language').value,
                 temperature: parseFloat(document.getElementById('temperature').value),
                 maxTokens: parseInt(document.getElementById('maxTokens').value),
+                topP: parseFloat(document.getElementById('topP').value),
+                topK: parseInt(document.getElementById('topK').value),
                 debugMode: document.getElementById('debugMode').checked,
                 saveRawStream: document.getElementById('saveRawStream').checked,
                 saveAiRequest: document.getElementById('saveAiRequest').checked,

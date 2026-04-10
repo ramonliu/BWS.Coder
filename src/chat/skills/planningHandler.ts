@@ -106,10 +106,8 @@ const PROGRESS_TEMPLATE = `# Progress Log
 `;
 
 export class PlanningHandler {
-  public static handlePlanCommand(workspacePath: string, generateId: () => string, lang?: string): ChatMessage[] {
-    if (!workspacePath) {
-      return [{ id: generateId(), role: 'system', content: t(lang, 'planningNoWorkspace'), timestamp: new Date() }];
-    }
+  public static ensurePlanningFiles(workspacePath: string): void {
+    if (!workspacePath) return;
 
     const planPath = path.join(workspacePath, 'task_plan.md');
     const findingsPath = path.join(workspacePath, 'findings.md');
@@ -118,6 +116,14 @@ export class PlanningHandler {
     if (!fs.existsSync(planPath)) fs.writeFileSync(planPath, TASK_PLAN_TEMPLATE);
     if (!fs.existsSync(findingsPath)) fs.writeFileSync(findingsPath, FINDINGS_TEMPLATE);
     if (!fs.existsSync(progressPath)) fs.writeFileSync(progressPath, PROGRESS_TEMPLATE);
+  }
+
+  public static handlePlanCommand(workspacePath: string, generateId: () => string, lang?: string): ChatMessage[] {
+    if (!workspacePath) {
+      return [{ id: generateId(), role: 'system', content: t(lang, 'planningNoWorkspace'), timestamp: new Date() }];
+    }
+
+    this.ensurePlanningFiles(workspacePath);
 
     return [{
       id: generateId(),

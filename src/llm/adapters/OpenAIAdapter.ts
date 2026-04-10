@@ -20,7 +20,9 @@ export class OpenAIAdapter implements ILLMAdapter {
         model: string,
         endpoint: string,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        topP?: number,
+        topK?: number
     }) {
         const { model } = options;
         const roleCorrectedMessages = ensureMandatoryRoles(messages);
@@ -51,6 +53,7 @@ export class OpenAIAdapter implements ILLMAdapter {
         if (!isReasoningModel) {
             if (options.temperature !== undefined) body.temperature = options.temperature;
             if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+            if (options.topP !== undefined) body.top_p = options.topP;
         }
 
         return {

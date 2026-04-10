@@ -81,8 +81,12 @@ export class ChatMessageHandler {
             const formatPath = path.join(this.context.extensionPath, 'prompts', 'ActionFormat.md');
 
             if (fs.existsSync(personaPath)) {
+                const reminder = outputLang === 'zh-TW'
+                    ? "[OUTPUT LANGUAGE: Traditional Chinese] Please respond only in Traditional Chinese.）\n"
+                    : "";
+                    //? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."                   
                 const personaSource = fs.readFileSync(personaPath, 'utf8');
-                personaPrompt = this.selectPersona(personaSource, lowerText);
+                personaPrompt = reminder + this.selectPersona(personaSource, lowerText);
             }
             if (fs.existsSync(formatPath)) actionFormatPrompt = fs.readFileSync(formatPath, 'utf8');
         } catch (err) {
@@ -143,10 +147,10 @@ export class ChatMessageHandler {
             //console.info("language=>", outputLang);
             // [2026-04-09] [Anti-Hallucination] - Add reminder for long conversations to keep AI grounded
             //if (service.messages && service.messages.length > 10) {
-            const reminder = outputLang === 'zh-TW'
-                ? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."
-                : "";
-            projectContext += reminder;
+            // const reminder = outputLang === 'zh-TW'
+            //     ? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."
+            //     : "";
+            // projectContext += reminder;
             //}
 
             // [2026-03-28] [Task-AntiHallucination] - Inject project 2-level structure to prevent hallucination

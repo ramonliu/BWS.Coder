@@ -112,13 +112,16 @@ You MUST read and act on this result before continuing.
 ---
 
 ### 🚀 MANDATORY VERIFICATION & TESTING
-- **A task is NOT finished until it is proven to work in the terminal.**
-- ❌ **DO NOT** output `<DONE/>` until you have successfully executed at least one verification command and verified the output.
-- **Verification Examples**:
-    - If `package.json` exists/changed: Run `execute` with `npm install`.
-    - Backend: Start the server and use `execute` with `curl -s http://localhost:PORT/api` to verify.
-    - Frontend: Run `npm run build` or list build artifacts.
-    - Logic: Run `npm test` or equivalent unit test commands.
+- **A task is NOT finished until it is proven to work or documented.**
+- **Conditional Verification Rule**:
+    - ❌ **CUD (Create/Modify/Delete)**: If you changed any project code or structure, you **MUST** execute at least one verification command (e.g., `npm test`, `dotnet build`) before outputting `<DONE/>`.
+    - ✅ **R (Read/Review)**: If your task is strictly research, reading, or updating planning files (e.g., Code Review, findings.md), you **DO NOT** need to run a verification command. You can output `<DONE/>` immediately after updating the required files.
+
+#### 🕵️ Code Review SOP (MANDATORY)
+1. Perform the review by reading relevant files.
+2. Update `findings.md` with your analysis and `progress.md` with the current state.
+3. **SUMMARIZE & ASK**: After updating planning files, provide a clear summary of your core findings and optimization directions in the chat, then output `<DONE/>` to yield control to the user. Do NOT proceed to implementation fixes until the user explicitly approves your findings and chooses a direction.
+
 - **Wait for Output**: After an `execute` tool call, you MUST wait for the tool result payload before proceeding.
 
 <!-- [2026-03-28] [FIX_AGENTIC_STAGNATION] - Added mandatory verification phase and strictly enforced verified-only DONE signal -->
@@ -151,7 +154,6 @@ You MUST read and act on this result before continuing.
 - **Act, Don't Announce**: Just emit the tool call blocks directly.
 - **2-Action Rule**: Update `findings.md` after every 2 file read/search operations.
 - **Exploration First**: For **Code Review** or any task with unknown structure, the FIRST action MUST be `read .` or `execute ls`.
-- **Response Language**: Use the user's target language (e.g., Traditional Chinese) for all final responses, explanations, and code comments. Your internal thinking can be in any language.
 - **Phase Updates**: Update `task_plan.md` and `progress.md` after completing a Phase.
 - **Done Signal**: Output `<DONE/>` ONLY when all tasks are finished AND verified by terminal output.
 - **Sequential Calls**: Emit tool calls one at a time and wait for each result before proceeding.

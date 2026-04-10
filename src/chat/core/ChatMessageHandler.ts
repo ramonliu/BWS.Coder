@@ -24,13 +24,13 @@ export class ChatMessageHandler {
     public async handleMessage(message: any, service: any): Promise<void> {
         switch (message.command) {
             case 'send': await this.handleUserMessage(message.text, service, message.attachments, message.chatMode); break;
-            case 'stop': 
-                if (service.globalCts) service.globalCts.cancel(); 
-                if (service.streamCts) service.streamCts.cancel(); 
-                service.isGenerating = false; 
+            case 'stop':
+                if (service.globalCts) service.globalCts.cancel();
+                if (service.streamCts) service.streamCts.cancel();
+                service.isGenerating = false;
                 // [2026-03-31] UX Fix - Force clear streaming flags on messages to immediately hide the breathing border
                 service.messages.forEach((m: any) => { if (m.role === 'assistant') { m.isStreaming = false; m.isThinking = false; } });
-                service.updateWebview(); 
+                service.updateWebview();
                 break;
             case 'clear': service.messages = []; service.currentSessionId = service.generateId(); this.historyManager.saveSession(service.currentSessionId, service.messages); service.updateWebview(); break;
             case 'copy': await vscode.env.clipboard.writeText(message.text); break;
@@ -73,14 +73,17 @@ export class ChatMessageHandler {
             return;
         }
 
-        // [2026-03-29] [Workflow-ModularPrompt] - Load Persona and Action Format separately
+        // [2026-04-10] [Dynamic-Persona] - Select persona based on keywords in user input
         let personaPrompt = '';
         let actionFormatPrompt = '';
         try {
-            const personaPath = path.join(this.context.extensionPath, 'prompts', 'Programer.md');
+            const personaPath = path.join(this.context.extensionPath, 'prompts', 'Personalization.md');
             const formatPath = path.join(this.context.extensionPath, 'prompts', 'ActionFormat.md');
 
-            if (fs.existsSync(personaPath)) personaPrompt = fs.readFileSync(personaPath, 'utf8');
+            if (fs.existsSync(personaPath)) {
+                const personaSource = fs.readFileSync(personaPath, 'utf8');
+                personaPrompt = this.selectPersona(personaSource, lowerText);
+            }
             if (fs.existsSync(formatPath)) actionFormatPrompt = fs.readFileSync(formatPath, 'utf8');
         } catch (err) {
             console.error('[BWS Coder] Failed to read prompt files:', err);
@@ -120,14 +123,14 @@ export class ChatMessageHandler {
 
             // 3. Dynamic Planning Context (task_plan.md, findings.md)
             projectContext += PlanningHandler.getDynamicContext(workspacePath);
-
+            //console.info("language=>", outputLang);
             // [2026-04-09] [Anti-Hallucination] - Add reminder for long conversations to keep AI grounded
-            if (service.messages && service.messages.length > 10) {
-                const reminder = outputLang === 'zh-TW' 
-                    ? "\n\n[System Guard] Conversation is long. Please:\n1. Prioritize referencing findings.md to avoid redundant operations.\n2. **YOU MUST maintain your response language** as Traditional Chinese (zh-TW) for all explanations and outputs."
-                    : "\n\n[System Guard] Conversation is long. Please:\n1. Prioritize referencing findings.md to avoid redundant operations.\n2. **YOU MUST maintain your response language** (e.g. your current target language) for all explanations and outputs.";
-                projectContext += reminder;
-            }
+            //if (service.messages && service.messages.length > 10) {
+            const reminder = outputLang === 'zh-TW'
+                ? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."
+                : "";
+            projectContext += reminder;
+            //}
 
             // [2026-03-28] [Task-AntiHallucination] - Inject project 2-level structure to prevent hallucination
             // [2026-04-09] [REMOVED] - Disabling automatic structure injection to force AI to explore the workspace manually.
@@ -181,7 +184,8 @@ export class ChatMessageHandler {
         // Assemble the display system prompt for components that still need it
         systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + functionalPrompt);
 
-        // Auto-initialize planning files
+        /* [2026-04-10] [Task-Disable-AutoInit] - Disable auto-initialization of planning files as requested. 
+           Let the AI Agent decide when to create these files manually.
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const planPath = path.join(workspacePath, 'task_plan.md');
@@ -197,6 +201,7 @@ export class ChatMessageHandler {
                 service.updateWebview();
             }
         }
+        */
 
         const needsAIPlan = trimmedText.startsWith('/plan') || text.includes('請幫實現工作流');
 
@@ -563,6 +568,39 @@ export class ChatMessageHandler {
             service.isGenerating = false;
             service.updateWebview();
         }
+    }
+
+    // [2026-04-10] [Task-Dynamic-Persona] - Select the best persona based on user keywords
+    private selectPersona(source: string, text: string): string {
+        const sections: Record<string, string> = {};
+        const parts = source.split(/^#\s+/m);
+        
+        parts.forEach(p => {
+            const lines = p.split('\n');
+            const title = lines[0].trim();
+            const content = lines.slice(1).join('\n').trim();
+            if (title) sections[title.toLowerCase()] = content;
+        });
+
+        // Mapping rules (Order defines priority)
+        const rules = [
+            { key: 'omnipotent', terms: ['全能', '架構', '全面', 'ultimate', 'architect'] },
+            { key: 'review', terms: ['review', '審查', '代碼審查', '程式碼審查'] },
+            { key: 'debug', terms: ['debug', '除錯', '錯誤', 'error', 'bug'] },
+            { key: 'refactor', terms: ['refactor', '重構'] },
+            { key: 'security', terms: ['security', '安全', '漏洞'] }
+        ];
+
+        for (const rule of rules) {
+            if (rule.terms.some(t => text.toLowerCase().includes(t))) {
+                if (sections[rule.key]) {
+                    console.log(`[BWS Coder] Dynamic Persona Switched to: ${rule.key}`);
+                    return sections[rule.key];
+                }
+            }
+        }
+
+        return sections['default'] || (parts[0] ? parts[0] : '');
     }
 
     // [2026-03-28] [Task-AntiHallucination] - Fetch up to 2 layers of directory structure to prevent AI from guessing paths (e.g., bin, obj)

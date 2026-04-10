@@ -44,18 +44,18 @@ async function simulateWorkflowStep(stepRole: string, stepPrompt: string, scenar
         turnCount++;
         currentTurn++;
         const response = scenarios[currentTurn - 1] || { content: "", hasOps: false };
-        
+
         console.log(`[Turn ${currentTurn}] AI 回應: "${response.content.replace(/\n/g, ' ')}" | 有操作: ${response.hasOps}`);
 
         // 此處為實際在 WorkflowRunner.ts 中的修正邏輯
         const content = response.content || '';
-        const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]') || content.includes('<DONE/>');
+        const isDone = content.includes('<DONE/>');
 
         if (isDone) {
             console.log(`[LOG] 偵測到完成標籤，結束步驟。`);
             isStepDone = true;
         } else if (response.hasOps) {
-            turnCount = 0; 
+            turnCount = 0;
             console.log(`[LOG] 偵測到操作，重置回合數 (turnCount -> 0)。`);
         } else if (!content.trim()) {
             console.log(`[LOG] 內容為空且無操作，不結束，繼續下一回合 (turnCount: ${turnCount}/${MAX_TURNS})`);

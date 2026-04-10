@@ -58,6 +58,9 @@ export class MessageRenderer {
                 for (const block of m.blocks) {
                     if (block.type === 'speak') {
                         contentHtml += this.renderContent(block.text || '', isMsgGenerating, m.id);
+                    } else if (block.type === 'think') {
+                        // Render thinking block sequence if present
+                        contentHtml += MessageTemplates.renderThinkingBox(block.text || '', isMsgGenerating, block.isPending, m.id);
                     } else if (block.type === 'action') {
                         // [2026-03-28] [UI State Render] - Pass execution data dynamically to UI component
                         let displayContent = block.content || '';

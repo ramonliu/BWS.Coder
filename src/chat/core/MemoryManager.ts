@@ -26,10 +26,10 @@ export class MemoryManager {
         let displayContent = rawContent;
         if (!isFresh && rawContent.length > 2000) {
             // [2026-04-09] [Guard] - Avoid middle-truncation for critical state files as the middle often contains the most recent updates
-            const isStateFile = path.toLowerCase().includes('findings.md') || 
-                               path.toLowerCase().includes('task_plan.md') || 
-                               path.toLowerCase().includes('progress.md');
-            
+            const isStateFile = path.toLowerCase().includes('findings.md') ||
+                path.toLowerCase().includes('task_plan.md') ||
+                path.toLowerCase().includes('progress.md');
+
             if (isStateFile) {
                 // For state files, we prefer showing the tail (most recent) if we must truncate, 
                 // but ideally we keep more of it.
@@ -115,14 +115,14 @@ export class MemoryManager {
             }
 
             // [2026-04-09] [State-Protection] - Identify if message is related to critical state files
-            const isStateRelated = m.content.toLowerCase().includes('findings.md') || 
-                                  m.content.toLowerCase().includes('task_plan.md') || 
-                                  m.content.toLowerCase().includes('progress.md') ||
-                                  (m.blocks && m.blocks.some(b => b.filePath && (
-                                      b.filePath.toLowerCase().includes('findings.md') || 
-                                      b.filePath.toLowerCase().includes('task_plan.md') || 
-                                      b.filePath.toLowerCase().includes('progress.md')
-                                  )));
+            const isStateRelated = m.content.toLowerCase().includes('findings.md') ||
+                m.content.toLowerCase().includes('task_plan.md') ||
+                m.content.toLowerCase().includes('progress.md') ||
+                (m.blocks && m.blocks.some(b => b.filePath && (
+                    b.filePath.toLowerCase().includes('findings.md') ||
+                    b.filePath.toLowerCase().includes('task_plan.md') ||
+                    b.filePath.toLowerCase().includes('progress.md')
+                )));
 
             if (isStateRelated) {
                 m.weight = 1.0; // Protect state updates from being pruned
@@ -132,7 +132,7 @@ export class MemoryManager {
             const age = messages.length - 1 - index;
             if (age > 20 && m.weight < 1.0) {
                 // [2026-04-09] [Guard] - Do not decay if the message contains a completion signal
-                const isCompletion = m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]') || m.content.includes('<DONE/>');
+                const isCompletion = m.content.includes('<DONE/>');
                 if (!isCompletion) {
                     m.weight *= 0.8;
                 }
@@ -208,11 +208,11 @@ export class MemoryManager {
                     if (m.weight && m.weight >= 1.0) return false; // Skip protected high-weight user commands
                     if (originalIndex >= processed.length - 1) return false; // Never touch the absolute latest interaction turn
                     if (m.isPruned && m.pruneReason === 'global_budget_limit') return false;
-                    
+
                     // [2026-04-09] [Guard] - Protect fresh and short messages
                     if (freshStatus[originalIndex]) return false; // Protect recent volume
                     if ((m.content?.length || 0) < 1000) return false; // Don't archive short messages (too little savings, high context cost)
-                    
+
                     return (m.content?.length || 0) > 50;
                 });
 

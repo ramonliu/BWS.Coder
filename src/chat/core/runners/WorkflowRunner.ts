@@ -31,7 +31,7 @@ export class WorkflowRunner extends ChatExecutor {
         streamCts?: vscode.CancellationTokenSource
     ) {
         state.isGenerating = true;
-        
+
         // [2026-03-25] Task-Centric Dashboard - Pre-initialize all steps as IDLE
         const monitor = TaskMonitor.getInstance(this.context);
         const lang = getLang();
@@ -39,7 +39,7 @@ export class WorkflowRunner extends ChatExecutor {
             const pid = step.providerId === 'default' ? state.client.getProviderId() : step.providerId;
             monitor.updateStatus(pid, t(lang, 'ui_pending'), TaskMonitorStatus.IDLE, state.client.isCloudProvider(), t(lang, 'ui_waitingForExec'), step.role);
         });
-        
+
         state.updateWebview();
 
         // [2026-03-29] [Feature-Resume] - Determine starting step based on history
@@ -85,7 +85,7 @@ export class WorkflowRunner extends ChatExecutor {
         // [2026-03-29] [Workflow-Resume] - Preferred check via isTaskDone flag, fallback to string matching for backward compatibility
         state.messages.forEach((m: ChatMessage) => {
             if (m.role === 'assistant' && m.taskName) {
-                if (m.isTaskDone === true || m.content.includes('[@@DONE@@]') || m.content.includes('[DONE]') || m.content.includes('<DONE/>')) {
+                if (m.isTaskDone === true || m.content.includes('<DONE/>')) {
                     doneRoles.add(m.taskName);
                 }
             }
@@ -178,7 +178,7 @@ export class WorkflowRunner extends ChatExecutor {
 
             // [2026-03-25] [Workflow Fix] - Prioritize isDone signal. If AI says DONE, we move to next step even if it did an Op this turn.
             const content = result.content || '';
-            const isDone = content.includes('[@@DONE@@]') || content.includes('[DONE]') || content.includes('<DONE/>');
+            const isDone = content.includes('<DONE/>');
 
             if (isDone) {
                 const am = task.assistantMessage;
@@ -187,7 +187,7 @@ export class WorkflowRunner extends ChatExecutor {
                 isStepDone = true;
             } else if (result.hasOps) {
                 // [核心邏輯]：進度重置 (Progress-Based Reset) - ONLY if not done
-                turnCount = 0; 
+                turnCount = 0;
                 console.info(`[BWS Coder] Step ${step.role}: Detected progress (Ops), resetting turn counter.`);
             } else if (!content.trim()) {
                 // [2026-03-25] [Workflow Fix] - Do NOT auto-finish on empty content.

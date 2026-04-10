@@ -2,7 +2,7 @@
 
 所有顯著的更動都將記錄在此檔案中。
 
-## [0.1.21] - 協議升級與記憶穩定化 (Protocol Upgrade & Memory Stabilization) - 2026-04-09
+## [0.1.19] - 協議升級與記憶穩定化 (Protocol Upgrade & Memory Stabilization) - 2026-04-09
 
 ### 🚀 重大更新 (Major Updates)
 - **邁向 XML 工具調用協議 (XML Tool Call Protocol)**：全面廢棄舊式的 `[@@ action @@]` 標籤通訊，改用結構化、強健的 XML 工具調用模式。這大幅提升了指令解析的精確度，並消除了模型產出不完整標籤導致的解析錯誤。
@@ -15,7 +15,7 @@
 - **情境隔離優化**：修復了新 Session 會意外讀取到舊有 `findings.md` 而產生「預知記憶」的問題。現在系統鼓勵 AI 透過手動 `ls` 與 `read` 來主動探索環境。
 - **Unicode 修復計畫啟動**：針對 `Form1.cs` 中的萬國碼轉碼邏輯進行了初步審查與修復設計，解決了 `\uXXXX` 轉碼不完全的問題。
 
-## [0.1.20] - 全球語系與使用者體驗優化 (Universal Localization & UX Improvements) - 2026-03-31
+## 全球語系與使用者體驗優化 (Universal Localization & UX Improvements) - 2026-03-31
 
 ### ✨ 新增功能 (New Features)
 - **全面語系支援 (Universal Localization)**：擴充功能現在完整支援「繁體中文 (zh-TW)」、「簡體中文 (zh-CN)」與「英文 (en)」。包含所有的 AI 執行狀態、系統訊息、錯誤提示以及 UI 介面。
@@ -34,7 +34,7 @@
 - **架構升級**：移除所有舊式的 `package.nls.json` 檔案，將所有語系邏輯集中於 `src/utils/locale.ts` 管理，大幅提升維護性與動態切換效能。
 - **程式碼清理**：掃描並清除了所有 `.ts` 原始碼中的硬編碼中文，改由 `t()` 函數統一分發。
 
-## [0.1.19] - 標籤解析與穩定性修正 (Tag Parsing & Stability Fixes) - 2026-03-30
+## 標籤解析與穩定性修正 (Tag Parsing & Stability Fixes) - 2026-03-30
 
 ### 🐞 Bug 修復 (Bug Fixes)
 - **結構化標籤剔除優化**：修復了 AI 產出的 `[@@ create...@@]` 與 `[@@ eof @@]` 標籤有時會殘留在檔案內容中的問題。透過強化 Regex 容錯率，現在即使標籤不完整（如漏掉結尾括號）也能正確識別並剔除。

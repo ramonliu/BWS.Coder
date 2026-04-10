@@ -11,29 +11,29 @@ import { StreamingParser } from './StreamingParser';
 
 export abstract class ChatExecutor {
     constructor(protected context: vscode.ExtensionContext) { }
-    
+
     // // [2026-03-29] [Workflow-ModularPrompt] - Centralized smart prompt assembly
     protected getUnifiedSystemPrompt(personaPrompt: string, actionFormatPrompt: string, taskPrompt?: string, stepRole?: string): string {
         const strippedTaskPrompt = taskPrompt ? taskPrompt.trimStart() : '';
         const isOverride = strippedTaskPrompt.startsWith('[@@PROMPT@@]');
-        
+
         let identity = personaPrompt;
         let instruction = taskPrompt || '';
-        
+
         if (isOverride) {
             identity = strippedTaskPrompt.substring(12).trim();
             instruction = ''; // Task prompt is now the identity
         }
-        
+
         // Layering: Identity + Action Format + Instructions
         let result = `${identity}\n\n${actionFormatPrompt}`;
-        
+
         if (stepRole) {
             result = `[CURRENT_STEP: ${stepRole}]\n${instruction ? `Instruction: ${instruction}\n\n` : ''}${result}`;
         } else if (instruction) {
             result = `[CURRENT_TASK_INSTRUCTION]\n${instruction}\n\n${result}`;
         }
-        
+
         return result;
     }
 
@@ -122,7 +122,7 @@ export abstract class ChatExecutor {
         const turnCts = new vscode.CancellationTokenSource();
         if (state.setStreamCts) state.setStreamCts(turnCts);
         const stopSub = globalCts?.token.onCancellationRequested(() => turnCts.cancel());
-        
+
         // [2026-03-26] Execution Flow Fix - Synchronous background batch tracker
         const pendingOperations: Promise<any>[] = [];
         const parser = new StreamingParser(() => state.generateId());
@@ -132,7 +132,7 @@ export abstract class ChatExecutor {
             // [2026-03-29] [Fix-Fallback-Logic] - Use provided ID for monitor, or default to client's ID
             const activeProviderId = providerId || client.getProviderId();
             TaskMonitor.getInstance(this.context).updateStatus(activeProviderId, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName, undefined, true);
-            
+
             // [2026-03-25] Prompt Optimization - Unify multiple system messages
             let finalMessages = [...messages];
             const systemMsgs = finalMessages.filter(m => m.role === 'system');
@@ -187,7 +187,7 @@ export abstract class ChatExecutor {
                     // [2026-03-28] [State-Machine-Parser] Push chunk to stateful parser
                     const newOps = parser.pushChunk(chunk.content);
                     assistantMessage.blocks = parser.getBlocks();
-                    
+
                     if (newOps.length > 0) {
                         allResultsCount += newOps.length;
                         if (currentTask && currentTask.state !== TaskState.EXECUTING) {
@@ -219,7 +219,7 @@ export abstract class ChatExecutor {
 
                         if (hasExecute) {
                             turnCts.cancel();
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -233,16 +233,8 @@ export abstract class ChatExecutor {
             assistantMessage.isThinking = false;
 
             // [2026-03-29] [Workflow-Resume] - Set isTaskDone before tag replacement to ensure logic can resume
-            if (assistantMessage.content.includes('[@@DONE@@]') || assistantMessage.content.includes('[DONE]') || assistantMessage.content.includes('<DONE/>')) {
-                // If it's a legacy [@@DONE@@] signal, strip it for cleaner UI, unless user is debugging
-                if (assistantMessage.content.includes('[@@DONE@@]')) {
-                    const clean = assistantMessage.content.replace('[@@DONE@@]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
-                    assistantMessage.content = clean;
-                } else if (assistantMessage.content.includes('[DONE]')) {
-                    assistantMessage.content = assistantMessage.content.replace('[DONE]', t(getLang(), 'ui_completedTask', taskName || 'AI'));
-                } else if (assistantMessage.content.includes('<DONE/>')) {
-                    assistantMessage.content = assistantMessage.content.replace('<DONE/>', t(getLang(), 'ui_completedTask', taskName || 'AI'));
-                }
+            if (assistantMessage.content.includes('<DONE/>')) {
+                assistantMessage.content = assistantMessage.content.replace('<DONE/>', t(getLang(), 'ui_completedTask', taskName || 'AI'));
                 assistantMessage.isTaskDone = true;
             }
 
@@ -251,7 +243,7 @@ export abstract class ChatExecutor {
             // 最終掃描：Flush residual state buffer
             const finalOps = parser.close();
             assistantMessage.blocks = parser.getBlocks();
-            
+
             if (finalOps.length > 0) {
                 allResultsCount += finalOps.length;
                 if (currentTask && currentTask.state !== TaskState.EXECUTING) currentTask.transition(TaskState.EXECUTING);
@@ -311,15 +303,15 @@ export abstract class ChatExecutor {
         } catch (error: any) {
             const errorMsg = error.message || String(error);
             const isStalled = errorMsg.includes('STALLED');
-            
+
             if (currentTask) {
                 currentTask.transition(isStalled ? TaskState.RESCUE : TaskState.ERROR);
-                
+
                 // [2026-03-25] [RESCUE State Logic] - Inject localized rescue prompt for stalled streams
                 if (isStalled) {
                     const config = vscode.workspace.getConfiguration('bwsCoder');
                     const lang = config.get<string>('language') || 'en';
-                    
+
                     const rescueTitle = t(lang, 'rescueTitle');
                     const rescuePrompt = t(lang, 'rescuePrompt')
                         .replace('{0}', String(allResultsCount))
@@ -334,19 +326,19 @@ export abstract class ChatExecutor {
                     state.messages.push(rescueMsg);
                 }
             }
-            
+
             // // [2026-03-29] [Fix-UI-Hang] - Append error to narrative and RE-THROW to break Runner loops
             assistantMessage.content += `\n\n[${t(getLang(), 'msg_execError')}]: ${errorMsg}`;
             assistantMessage.isThinking = false;
             assistantMessage.isStreaming = false;
-            
+
             const monitorStatus = isStalled ? TaskMonitorStatus.STALLED : TaskMonitorStatus.ERROR;
             // [2026-03-29] [Fix-Lint] - Ensure activeProviderId is a string for TaskMonitor
             const activeProviderId = providerId || client.getProviderId();
             TaskMonitor.getInstance(this.context).updateStatus(activeProviderId, assistantMessage.providerName || 'AI', monitorStatus, client.isCloudProvider(), errorMsg, taskName);
             state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
             state.updateWebview();
-            
+
             throw error; // 核心修正：拋出異常以中斷 Runner 內部的 while 迴圈
         } finally {
             stopSub?.dispose();
@@ -375,7 +367,7 @@ export abstract class ChatExecutor {
                 state, client, op, providerId, providerDisplayName, taskName, currentTask, turnCts, globalCts
             );
             results.push(res);
-            
+
             // Serial update for 'staircase' effect when there are multiple ops
             if (ops.length > 1) {
                 // The main loop in executeAITurn will handle the webview update after the batch
@@ -496,10 +488,10 @@ export abstract class ChatExecutor {
         // Case 1: AI tries to use terminal command (redirection) for file creation
         if (action === 'execute') {
             const lc = content.toLowerCase();
-            const hasRedirection = lc.includes('>') || lc.includes('>>') || 
-                                 lc.includes('set-content') || lc.includes('out-file') || 
-                                 lc.includes('tee-object');
-            
+            const hasRedirection = lc.includes('>') || lc.includes('>>') ||
+                lc.includes('set-content') || lc.includes('out-file') ||
+                lc.includes('tee-object');
+
             if (hasRedirection) {
                 return t(lang, 'err_protocolViolation', filePath || 'path');
             }
@@ -571,13 +563,13 @@ export abstract class ChatExecutor {
         // Check the last 15 messages (approx 5-7 turns) for the exact same action and target
         const windowSize = 15;
         const lastMessages = history.slice(-windowSize);
-        
+
         let repeatCount = 0;
         for (const m of lastMessages) {
             if (m.role === 'assistant' && m.blocks) {
-                const foundMatch = m.blocks.some(b => 
-                    b.type === 'action' && 
-                    b.action === op.action && 
+                const foundMatch = m.blocks.some(b =>
+                    b.type === 'action' &&
+                    b.action === op.action &&
                     b.filePath === op.filePath &&
                     b.content === op.content // For 'execute', the command is in content
                 );
@@ -587,10 +579,10 @@ export abstract class ChatExecutor {
 
         if (repeatCount >= 2) {
             const lang = getLang();
-            const msg = lang === 'zh-TW' 
+            const msg = lang === 'zh-TW'
                 ? `[系統守護] 檢測到重複操作：您在最近幾回合內已多次執行 '${op.action}' 於 '${op.filePath || op.content}'。請檢查之前的對話記錄與執行結果，避免重複工作並直接推進任務。`
                 : `[System Guard] Redundant action detected: You have already performed '${op.action}' on '${op.filePath || op.content}' multiple times recently. Please reference your previous findings and proceed with analysis instead of re-reading.`;
-            
+
             console.warn(`[ChatExecutor] Redundancy Guard blocked action: ${op.action} on ${op.filePath || op.content} (Repeated ${repeatCount} times)`);
             return msg;
         }

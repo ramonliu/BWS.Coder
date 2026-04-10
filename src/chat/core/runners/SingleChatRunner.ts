@@ -65,14 +65,15 @@ export class SingleChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
+                    const isDone = result.content.includes('<DONE/>') || task.assistantMessage?.isTaskDone;
 
-                    if (isDone && !result.hasOps) {
+                    if (isDone) {
                         const am = task.assistantMessage;
                         const lang = require('../../../utils/locale').getLang();
                         const t = require('../../../utils/locale').t;
                         TaskMonitor.getInstance(this.context).updateStatus(state.client.getProviderId(), am?.providerName || 'AI', TaskMonitorStatus.FINISHED, state.client.isCloudProvider(), t(lang, 'msg_completedTask'), am?.taskName);
                         currentState = ChatState.IDLE; // AI 明確宣告完成
+                        result.hasOps = false;
                     } else if (result.hasOps) {
                         currentState = ChatState.CHATTING;
                     } else {

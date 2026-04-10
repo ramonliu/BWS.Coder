@@ -178,7 +178,7 @@ Get straight to the point in your responses and avoid greetings or small talk.`;
 - NEVER apologize for being an AI. Act as an integrated, powerful part of the development environment.
 - **ACT, DON'T ANNOUNCE**: Just execute immediately using XML tool calls.
 - **NO MARKDOWN CODE BLOCKS**: NEVER wrap \`<tool_call>\` in markdown delimiters (triple backticks). Output the raw XML directly.
-- [DONE] Signal: Output \`<DONE/>\` on its own line ONLY when everything is finished.`;
+- **DONE Signal**: Output \`<DONE/>\` on its own line ONLY when everything is finished.`;
 
     // If basePrompt is provided, it usually contains the ActionFormat.md. 
     // We make sure identity and core capability are always present.

@@ -31,11 +31,11 @@ export class GroupChatRunner extends ChatExecutor {
     ) {
         let currentState = ChatState.CHATTING;
         let turnCount = 0;
-        
+
         // [2026-03-29] [Feature-Resume] - Determine starting rotation based on history
         const resume = this.getResumeIndices(state, personas || [], (state.client as any).getActiveClients ? (state.client as any).getActiveClients() : [state.client]);
         let groupChatIndex = resume.groupChatIndex;
-        let personaIndex = resume.personaIndex; 
+        let personaIndex = resume.personaIndex;
 
         // [2026-03-29] [Workflow-ModularPrompt] - Use modular assembly logic
         let basePromptMessages: { role: any, content: string }[] = [];
@@ -66,7 +66,7 @@ export class GroupChatRunner extends ChatExecutor {
                 groupChatClients = [state.client];
             }
 
-            const participantList = personas && personas.length > 0 
+            const participantList = personas && personas.length > 0
                 ? personas.map(p => p.name).join('、')
                 : groupChatClients.map((c: any) => c.getProviderName ? c.getProviderName() : 'AI').join(', ');
             state.messages.push({ id: state.generateId(), role: 'system', content: t(getLang(), 'msg_groupChatStarted', participantList), timestamp: new Date() });
@@ -95,7 +95,7 @@ export class GroupChatRunner extends ChatExecutor {
                             const lang = getLang();
                             groupPromptAddon = t(lang, 'msg_groupPersonaRolePrompt', currentPersona.name, currentPersona.persona);
                             personaIndex = (personaIndex + 1) % personas.length;
-                            
+
                             // [2026-03-29] [Fix-Fallback-Logic] - Use IDs instead of concrete clients
                             providerId = groupChatClients[groupChatIndex].getProviderId();
                             groupChatIndex = (groupChatIndex + 1) % groupChatClients.length;
@@ -131,7 +131,7 @@ export class GroupChatRunner extends ChatExecutor {
                         {} as any,
                         state.messages
                     );
-                    
+
                     // // [2026-03-29] [Fix-UI-Hang] - Ensure state is reset even on API failure
                     // // [2026-03-29] [Fix-Fallback-Logic] - Use state.client (MultiLLMClient) with providerId target
                     const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, providerId, providerName, descriptiveTaskName, task);
@@ -140,7 +140,7 @@ export class GroupChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
+                    const isDone = result.content.includes('<DONE/>');
 
                     // [2026-03-27] User Preference: 0 means unlimited rounds
                     const configMaxRounds = vscode.workspace.getConfiguration('bwsCoder').get<number>('groupChatMaxRounds');

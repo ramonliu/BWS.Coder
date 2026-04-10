@@ -33,7 +33,7 @@ export class ConcurrentChatRunner extends ChatExecutor {
         globalCts?: vscode.CancellationTokenSource
     ): Promise<FileOpResult[]> {
         // [2026-03-25] [Implementing Concurrent Runner Logic] - TP1 strategy: Use Promise.all for independent ops.
-        const promises = ops.map(op => 
+        const promises = ops.map(op =>
             this.performSingleOperation(
                 state, client, op, providerId, providerDisplayName, taskName, currentTask, turnCts, globalCts
             )
@@ -97,7 +97,7 @@ export class ConcurrentChatRunner extends ChatExecutor {
                     const db = DebugDB.getInstance(this.context);
                     state.messages.forEach(m => db.logMessageState(m, turnCount));
 
-                    const isDone = result.content.includes('[@@DONE@@]') || result.content.includes('[DONE]') || result.content.includes('<DONE/>');
+                    const isDone = result.content.includes('<DONE/>');
 
                     if (isDone && !result.hasOps) {
                         const am = task.assistantMessage;

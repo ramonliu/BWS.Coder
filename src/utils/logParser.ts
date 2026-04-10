@@ -17,25 +17,25 @@ export function parseRawLog(fileContent: string): ParsedLog {
     lines.forEach(line => {
         let cleanLine = line.trim();
         if (!cleanLine) return;
-        
+
         // Remove SSE marker
         if (cleanLine.startsWith('data:')) {
             cleanLine = cleanLine.replace(/^data:\s*/, '');
         }
-        
-        if (cleanLine === '[DONE]' || cleanLine === '<DONE/>') return;
+
+        if (cleanLine === '<DONE/>') return;
 
         try {
             const json = JSON.parse(cleanLine);
             const delta = json.choices?.[0]?.delta || json.delta || json;
-            
+
             // Extract content
             if (delta.content) fullContent += delta.content;
-            
+
             // Extract reasoning
             const thinking = delta.reasoning_content || delta.thinking || delta.reasoning;
             if (thinking) fullThinking += thinking;
-            
+
             // Extract message fields (fallback format)
             if (json.message) {
                 if (json.message.content) fullContent += json.message.content;
@@ -48,7 +48,7 @@ export function parseRawLog(fileContent: string): ParsedLog {
             if (text && !delta.content) {
                 if (typeof text === 'string') fullContent += text;
             }
-        } catch (e) { 
+        } catch (e) {
             // ignore non-json
         }
     });

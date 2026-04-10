@@ -85,6 +85,10 @@ export class SingleChatRunner extends ChatExecutor {
                         //         timestamp: new Date()
                         //     });
                         //     currentState = ChatState.CHATTING;
+                    } else {
+                        // [2026-04-11] [Fix-EmptyResponse-Loop] - AI returned empty content with no ops (e.g. connection drop).
+                        // Without this fallback, currentState stays CHATTING and spawns infinite empty turns.
+                        currentState = ChatState.IDLE;
                     }
                 }
             }

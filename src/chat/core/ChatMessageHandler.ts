@@ -185,7 +185,7 @@ export class ChatMessageHandler {
         systemPrompt = PromptBuilder.getChatSystemPrompt(outputLang, personaPrompt + '\n\n' + functionalPrompt);
 
         /* [2026-04-10] [Task-Disable-AutoInit] - Disable auto-initialization of planning files as requested. 
-           Let the AI Agent decide when to create these files manually.
+           Let the AI Agent decide when to create these files manually.*/
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const planPath = path.join(workspacePath, 'task_plan.md');
@@ -201,7 +201,7 @@ export class ChatMessageHandler {
                 service.updateWebview();
             }
         }
-        */
+
 
         const needsAIPlan = trimmedText.startsWith('/plan') || text.includes('請幫實現工作流');
 
@@ -574,7 +574,7 @@ export class ChatMessageHandler {
     private selectPersona(source: string, text: string): string {
         const sections: Record<string, string> = {};
         const parts = source.split(/^#\s+/m);
-        
+
         parts.forEach(p => {
             const lines = p.split('\n');
             const title = lines[0].trim();

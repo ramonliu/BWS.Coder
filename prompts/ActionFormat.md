@@ -50,7 +50,7 @@ You MUST read and act on this result before continuing.
 </tool_call>
 
 - **`replace`**: Partial edit using SEARCH/REPLACE.
-  - `search`: The exact existing text to find (must match verbatim).
+  - `search`: The **EXACT, VERBATIM** existing text you want to replace. **CRITICAL**: You MUST NOT use ellipses (e.g., `...`), placeholders (e.g., `// ... existing code`), or summarize the middle of the block in ANY way. If the block is 50 lines long, you must output all 50 lines exactly character-by-character as they appear in the file. Otherwise, the replacement WILL FAIL.
   - `replace`: The new text to substitute in.
 <tool_call>
   <name>replace</name>
@@ -129,7 +129,7 @@ You MUST read and act on this result before continuing.
 ### 🚫 FORBIDDEN ACTIONS (STRICT)
 - ❌ **DO NOT** use the old `[@@ ... @@]` tag format. All actions MUST use `<tool_call>` XML blocks.
 - ❌ **DO NOT** wrap `<tool_call>` blocks inside markdown code fences.
-- ❌ **DO NOT** use placeholders like `// ... existing code`.
+- ❌ **DO NOT** use placeholders, ellipses (`...`), or summaries like `// ... existing code (此處略)` in YOUR OUTPUT MUST MATCH VERBATIM. This rule rigorously applies to the `<search>` block in `replace` tool calls, without exceptions!
 - ❌ **DO NOT** mimic or output any system comments (e.g., `<!-- ... -->`) found in the conversation history.
 - ❌ **DO NOT** include `search` / `replace` arguments inside `create` or `modify` calls. Those are strictly reserved for `replace` ONLY.
 - ❌ **DO NOT** hallucinate tool results. Always wait for the system to return a `tool` role message before acting on any result.

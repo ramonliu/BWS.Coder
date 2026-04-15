@@ -168,7 +168,9 @@ export class MultiLLMClient implements ILLMClient {
 
         const generator = client.chat(messages, onProgress, onFirstChunk, cancellationToken, images, dumpPath, undefined, taskName);
         for await (const chunk of generator) {
-          if (cancellationToken?.isCancellationRequested) break;
+          if (cancellationToken?.isCancellationRequested) {
+            throw new Error('ABORTED');
+          }
           yield chunk;
         }
 

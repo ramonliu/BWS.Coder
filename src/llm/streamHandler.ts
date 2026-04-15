@@ -55,6 +55,15 @@ export async function* processStream(
         try { if (fs.existsSync(dumpPath)) fs.unlinkSync(dumpPath); } catch { }
     }
 
+    // [2026-04-16] Immediate Cancellation Handler - Destroy stream even if blocked on reading
+    const cancelSub = cancellationToken?.onCancellationRequested(() => {
+        isStreamDestroyed = true;
+        if (stream.destroy) {
+            console.warn(`[${providerName}] User cancelled - destroying stream immediately.`);
+            stream.destroy(new Error('USER_ABORTED'));
+        }
+    });
+
     // 定期檢查
     const monitorInterval = setInterval(() => {
         if (isStreamDestroyed || cancellationToken?.isCancellationRequested) return;
@@ -177,9 +186,14 @@ export async function* processStream(
         }
 
     } catch (error: any) {
-        // [2026-03-25] [Fixing RESCUE Timing] - Ensure STALLED error is re-thrown after yielding lineBuffer
+        // [2026-04-16] [Fix-Cancellation-Leak] - Catch user abort and re-throw clearly
+        const isUserAbort = error.message === 'USER_ABORTED' || cancellationToken?.isCancellationRequested;
+        
         if (lineBuffer) yield { content: lineBuffer };
         
+        if (isUserAbort) {
+            throw new Error('ABORTED');
+        }
         if (error.message.includes('STALLED:')) {
             throw error; 
         }
@@ -187,6 +201,7 @@ export async function* processStream(
             throw error;
         }
     } finally {
+        if (cancelSub) cancelSub.dispose();
         if (monitorInterval) clearInterval(monitorInterval);
         
         // 紀錄活動 (若有數據)

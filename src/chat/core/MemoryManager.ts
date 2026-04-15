@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ChatMessage } from '../historyManager';
-import { getHasActionRegex } from '../constants';
+import { hasToolCall } from '../constants';
 
 
 /**
@@ -97,7 +97,7 @@ export class MemoryManager {
                 }
             } else if (m.role === 'assistant') {
                 // [2026-03-28] [State-Machine-Parser] - Check blocks[] first, fallback to regex for old messages
-                const hasActions = (m.blocks && m.blocks.some(b => b.type === 'action')) || getHasActionRegex().test(m.content);
+                const hasActions = (m.blocks && m.blocks.some(b => b.type === 'action')) || hasToolCall(m.content);
                 m.weight = hasActions ? 0.8 : 0.4;
             } else if (m.role === 'tool') {
                 m.weight = 0.8;

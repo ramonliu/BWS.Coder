@@ -1,7 +1,7 @@
 import { ChatMessage } from './historyManager';
 import { MessageTemplates } from './messageTemplates';
 import * as vscode from 'vscode';
-// [2026-03-28] [FileOps-Refactor] - getRenderBlockRegex no longer needed (replaced by fileOps[] rendering)
+import { findToolCallStart, TAG_TOOL_CALL_END } from './constants';
 
 
 /**
@@ -125,8 +125,24 @@ export class MessageRenderer {
         }
 
         // Step 2. 移除残留的原始 tag（Fallback）
-        const blockRegex = /<tool_call>[\s\S]*?<\/tool_call>|\[@@\s*(?:create|modify|replace|read|execute|delete):[^\]]+@@\][\s\S]*?(?:\[@@\s*eof\s*@@\]|(?=\[@@ )|$)/gi;
-        text = text.replace(blockRegex, () => '');
+        // [2026-04-16] Non-Regex approach for tool calls
+        while (true) {
+            const startInfo = findToolCallStart(text);
+            if (!startInfo) break;
+            
+            const endIdx = text.indexOf(TAG_TOOL_CALL_END, startInfo.index + startInfo.length);
+            if (endIdx === -1) {
+                // If it's an unclosed block at the end (common in streaming), remove from start to end of string
+                text = text.substring(0, startInfo.index);
+                break;
+            } else {
+                text = text.substring(0, startInfo.index) + text.substring(endIdx + TAG_TOOL_CALL_END.length);
+            }
+        }
+
+        // 也移除舊版的 [@@...@@] 格式 (Fallback for legacy)
+        const legacyRegex = /\[@@\s*(?:create|modify|replace|read|execute|delete):[^\]]+@@\][\s\S]*?(?:\[@@\s*eof\s*@@\]|(?=\[@@ )|$)/gi;
+        text = text.replace(legacyRegex, () => '');
 
         // Step 3. 處理一般的程式碼區塊 (非 File Op)
         const codeRegex = /```(\w*)\n([\s\S]*?)(?:```|$)/g;

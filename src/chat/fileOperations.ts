@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getFileOpRegex, getEofRegex, getReplaceOldRegex, getReplaceDivRegex, getReplaceNewRegex } from './constants';
+import { findToolCallStart, TAG_TOOL_CALL_END, TAG_SEARCH_START, TAG_SEARCH_END, TAG_REPLACE_START, TAG_REPLACE_END } from './constants';
+import { extractTag } from '../utils/xmlUtils';
 import { t, getLang } from '../utils/locale';
 
 export interface FileOperation {
@@ -68,43 +69,41 @@ export async function parseAndExecuteFileOps(
 
 export function parseFileOps(response: string, isStreaming: boolean = false): FileOperation[] {
   const ops: FileOperation[] = [];
-  // Match full tool_call block
-  const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/gi;
-  let match: RegExpExecArray | null;
 
-  while ((match = toolCallRegex.exec(response)) !== null) {
-    const innerXml = match[1];
-    
+  let pos = 0;
+  while (true) {
+    const startInfo = findToolCallStart(response, pos);
+    if (!startInfo) break;
+
+    const endIdx = response.indexOf(TAG_TOOL_CALL_END, startInfo.index + startInfo.length);
+    if (endIdx === -1) break;
+
+    const innerXml = response.substring(startInfo.index + startInfo.length, endIdx);
+    pos = endIdx + TAG_TOOL_CALL_END.length;
+
     // Extract name
-    const nameMatch = /<name>(.*?)<\/name>/i.exec(innerXml);
-    if (!nameMatch) continue;
-    const action = nameMatch[1].trim().toLowerCase() as FileOperation['action'];
+    const actionStr = extractTag(innerXml, 'name');
+    if (!actionStr) continue;
+    const action = actionStr.toLowerCase() as FileOperation['action'];
 
     // Extract path or command
-    const pathMatch = /<path>(.*?)<\/path>/i.exec(innerXml);
-    const commandMatch = /<command>(.*?)<\/command>/i.exec(innerXml);
-    let filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
+    const path = extractTag(innerXml, 'path');
+    const command = extractTag(innerXml, 'command');
+    let filePath = path || command || '';
 
     let content = '';
 
     if (action === 'create' || action === 'write' || action === 'modify') {
-      const contentMatch = /<content>([\s\S]*?)<\/content>/i.exec(innerXml);
-      content = contentMatch ? contentMatch[1] : '';
+      content = extractTag(innerXml, 'content') || '';
     } else if (action === 'replace') {
-      const searchMatch = /<search>([\s\S]*?)<\/search>/i.exec(innerXml);
-      const replaceMatch = /<replace>([\s\S]*?)<\/replace>/i.exec(innerXml);
-      
-      const searchContent = searchMatch ? searchMatch[1] : '';
-      const replaceContent = replaceMatch ? replaceMatch[1] : '';
-      
-      content = `<search>\n${searchContent}\n</search>\n<replace>\n${replaceContent}\n</replace>`;
+      const searchContent = extractTag(innerXml, 'search') || '';
+      const replaceContent = extractTag(innerXml, 'replace') || '';
+      content = `${TAG_SEARCH_START}\n${searchContent}\n${TAG_SEARCH_END}\n${TAG_REPLACE_START}\n${replaceContent}\n${TAG_REPLACE_END}`;
     } else if (action === 'read') {
-      const startLineMatch = /<start_line>\s*(\d+)\s*<\/start_line>/i.exec(innerXml);
-      const endLineMatch = /<end_line>\s*(\d+)\s*<\/end_line>/i.exec(innerXml);
-      if (startLineMatch) {
-        const start = startLineMatch[1];
-        const end = endLineMatch ? endLineMatch[1] : start;
-        filePath = `${filePath}#L${start}-${end}`;
+      const start = extractTag(innerXml, 'start_line');
+      const end = extractTag(innerXml, 'end_line');
+      if (start) {
+        filePath = `${filePath}#L${start}-${end || start}`;
       }
       content = filePath;
     } else if (action === 'execute') {
@@ -120,38 +119,33 @@ export function parseFileOps(response: string, isStreaming: boolean = false): Fi
 
   // Handle unclosed block if streaming
   if (isStreaming) {
-    const unclosedMatch = response.match(/<tool_call>(?![\s\S]*?<\/tool_call>)[\s\S]*$/i);
-    if (unclosedMatch) {
-      const innerXml = unclosedMatch[0];
-      const nameMatch = /<name>(.*?)<\/name>/i.exec(innerXml);
-      const pathMatch = /<path>(.*?)<\/path>/i.exec(innerXml);
-      const commandMatch = /<command>(.*?)<\/command>/i.exec(innerXml);
+    const lastStart = findToolCallStart(response);
+    if (lastStart && response.indexOf(TAG_TOOL_CALL_END, lastStart.index) === -1) {
+      const innerXml = response.substring(lastStart.index);
+      const actionStr = extractTag(innerXml, 'name');
 
-      if (nameMatch) {
-         const action = nameMatch[1].trim().toLowerCase() as FileOperation['action'];
-         let filePath = pathMatch ? pathMatch[1].trim() : (commandMatch ? commandMatch[1].trim() : '');
-         
-         let content = '';
-         if (action === 'create' || action === 'write' || action === 'modify') {
-            const contentMatch = /<content>([\s\S]*)$/i.exec(innerXml);
-            if (contentMatch) {
-               content = contentMatch[1];
-               if (content.endsWith('</content>')) content = content.substring(0, content.length - 10);
-            }
-             // For streaming replace, we might only have part of search or replace, skip complex streaming or just show what we have.
-             content = innerXml; 
-         } else if (action === 'read') {
-             const startMatch = /<start_line>\s*(\d+)\s*<\/start_line>/i.exec(innerXml);
-             const endMatch = /<end_line>\s*(\d+)\s*<\/end_line>/i.exec(innerXml);
-             if (startMatch) {
-                 const start = startMatch[1];
-                 const end = endMatch ? endMatch[1] : start;
-                 filePath = `${filePath}#L${start}-${end}`;
-             }
-             content = filePath;
-         }
-         
-         ops.push({ action, filePath, content: stripMarkdownCodeBlocks(content) });
+      if (actionStr) {
+        const action = actionStr.toLowerCase() as FileOperation['action'];
+        const path = extractTag(innerXml, 'path');
+        const command = extractTag(innerXml, 'command');
+        let filePath = path || command || '';
+
+        let content = '';
+        if (action === 'create' || action === 'write' || action === 'modify') {
+          content = extractTag(innerXml, 'content') || '';
+          // If it still ends with the partial opening but is being closed (not likely here), 
+          // the extractTag handles the missing end tag by returning until EOF.
+          content = innerXml; // Fallback to raw inner for partial streaming visibility
+        } else if (action === 'read') {
+          const start = extractTag(innerXml, 'start_line');
+          const end = extractTag(innerXml, 'end_line');
+          if (start) {
+            filePath = `${filePath}#L${start}-${end || start}`;
+          }
+          content = filePath;
+        }
+
+        ops.push({ action, filePath, content: stripMarkdownCodeBlocks(content) });
       }
     }
   }
@@ -189,26 +183,24 @@ export async function replaceFileContent(filePath: string, patchContent: string)
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceFileNotFound') };
     }
 
-    const startMatch = patchContent.match(getReplaceOldRegex());
-    const dividerMatch = patchContent.match(getReplaceDivRegex());
-    const endMatch = patchContent.match(getReplaceNewRegex());
-    if (!startMatch || !dividerMatch || !endMatch) {
+    const startIdx = patchContent.indexOf(TAG_SEARCH_START);
+    const dividerIdx = patchContent.indexOf(TAG_SEARCH_END);
+    const replaceStartIdx = patchContent.indexOf(TAG_REPLACE_START);
+    const endIdx = patchContent.indexOf(TAG_REPLACE_END);
+
+    if (startIdx === -1 || dividerIdx === -1 || replaceStartIdx === -1 || endIdx === -1) {
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceTagsMissing') };
     }
 
-    const startIdx = startMatch.index!;
-    const dividerIdx = dividerMatch.index!;
-    const endIdx = endMatch.index!;
-    if (dividerIdx < startIdx || endIdx < dividerIdx) {
+    if (dividerIdx < startIdx || replaceStartIdx < dividerIdx || endIdx < replaceStartIdx) {
       return { success: false, action: 'replace', filePath, error: t(getLang(), 'op_replaceTagsOrder') };
     }
 
-    // Extract search/replace content, normalize line endings, strip edge blank lines only
     const normLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const stripEdge = (s: string) => s.replace(/^\n+|\n+$/g, '');
 
-    let oldCode = stripEdge(normLF(patchContent.substring(startIdx + startMatch[0].length, dividerIdx)));
-    let newCode = stripEdge(normLF(patchContent.substring(dividerIdx + dividerMatch[0].length, endIdx)));
+    let oldCode = stripEdge(normLF(patchContent.substring(startIdx + TAG_SEARCH_START.length, dividerIdx)));
+    let newCode = stripEdge(normLF(patchContent.substring(replaceStartIdx + TAG_REPLACE_START.length, endIdx)));
 
     // Read file, detect original line endings, normalize to LF for matching
     const fileRaw = fs.readFileSync(filePath, 'utf-8');
@@ -319,25 +311,25 @@ export async function readFileAction(filePath: string, displayPath?: string): Pr
 
       let structure = `[Directory Structure: ${actualPath}]\n`;
       const ignoreList = ['.git', 'node_modules', 'dist', 'out', '.vscode', '.bws.coder', 'bin', 'obj'];
-      
+
       for (const item of items) {
         if (ignoreList.includes(item.name)) continue;
         structure += `${item.isDirectory() ? '📁' : '📄'} ${item.name}${item.isDirectory() ? '/' : ''}\n`;
       }
-      
+
       return { success: true, action: 'read', filePath, output: structure };
     }
     const fullContent = fs.readFileSync(actualPath, 'utf-8');
     const lines = fullContent.split(/\r?\n/);
-    
+
     if (lineRange) {
       const startIdx = Math.max(0, lineRange.start - 1);
       const endIdx = Math.min(lines.length, lineRange.end);
-      
+
       if (startIdx >= lines.length) {
         return { success: true, action: 'read', filePath, output: t(getLang(), 'op_readEmptyRange') || '(outside of file range)' };
       }
-      
+
       const subContent = lines.slice(startIdx, endIdx).join('\n');
       return { success: true, action: 'read', filePath, output: subContent };
     }
@@ -364,21 +356,21 @@ export function formatFileOpResults(results: FileOpResult[]): string {
   const lang = getLang();
   const lines = results.map(r => {
     if (r.success) {
-      const icons: Record<string, string> = { 
-        create: t(lang, 'op_created'), 
-        write: t(lang, 'op_created'), 
-        modify: t(lang, 'op_modified'), 
-        delete: t(lang, 'op_deleted'), 
-        read: t(lang, 'op_read') 
+      const icons: Record<string, string> = {
+        create: t(lang, 'op_created'),
+        write: t(lang, 'op_created'),
+        modify: t(lang, 'op_modified'),
+        delete: t(lang, 'op_deleted'),
+        read: t(lang, 'op_read')
       };
       return `${icons[r.action] || '✅'} \`${r.filePath}\``;
     } else {
-      const icons: Record<string, string> = { 
-        create: t(lang, 'op_createFailed'), 
-        write: t(lang, 'op_createFailed'), 
-        modify: t(lang, 'op_modifyFailed'), 
-        delete: t(lang, 'op_deleteFailed'), 
-        read: t(lang, 'op_readFailed') 
+      const icons: Record<string, string> = {
+        create: t(lang, 'op_createFailed'),
+        write: t(lang, 'op_createFailed'),
+        modify: t(lang, 'op_modifyFailed'),
+        delete: t(lang, 'op_deleteFailed'),
+        read: t(lang, 'op_readFailed')
       };
       return `${icons[r.action] || '❌'} \`${r.filePath}\`：${r.error}`;
     }

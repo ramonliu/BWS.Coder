@@ -84,9 +84,9 @@ export class ChatMessageHandler {
 
             if (fs.existsSync(personaPath)) {
                 const reminder = outputLang === 'zh-TW'
-                    ? "[OUTPUT LANGUAGE: Traditional Chinese] Please respond only in Traditional Chinese.）\n"
+                    ? "[OUTPUT LANGUAGE: Traditional Chinese] Please respond only in Traditional Chinese.\n"
                     : "";
-                    //? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."                   
+                //? "\n\n- **Response Language**: Use the user's language Traditional Chinese for all final responses, explanations, and code comments."                   
                 const personaSource = fs.readFileSync(personaPath, 'utf8');
                 personaPrompt = reminder + this.selectPersona(personaSource, lowerText);
             }
@@ -104,7 +104,7 @@ export class ChatMessageHandler {
                 if (a.type === 'image') images.push(a.content.split(',')[1] || a.content);
             });
         }
-        
+
         // [2026-04-10] [Fix-Planning-Init-Order] - Ensure planning files exist before building project context
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;

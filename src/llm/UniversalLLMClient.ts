@@ -98,6 +98,25 @@ export class UniversalLLMClient implements ILLMClient {
             throw new Error(`所有 ${providerName} API Key 皆已耗盡並進入 1 天冷卻期`);
         }
 
+        // [2026-04-16] Language Enforcement via Message Suffix (Option 2)
+        const configVsc = vscode.workspace.getConfiguration('bwsCoder');
+        const language = configVsc.get<string>('language');
+        let finalMessages = messages;
+        
+        if (language === 'zh-TW') {
+            finalMessages = [...messages];
+            const lastUserIdx = finalMessages.map(m => m.role).lastIndexOf('user');
+            if (lastUserIdx >= 0) {
+                finalMessages[lastUserIdx] = { ...finalMessages[lastUserIdx], content: finalMessages[lastUserIdx].content + '\n\n(請務必使用繁體中文回答我)' };
+            }
+        } else if (language === 'zh-CN') {
+            finalMessages = [...messages];
+            const lastUserIdx = finalMessages.map(m => m.role).lastIndexOf('user');
+            if (lastUserIdx >= 0) {
+                finalMessages[lastUserIdx] = { ...finalMessages[lastUserIdx], content: finalMessages[lastUserIdx].content + '\n\n(请务必使用简体中文回答我)' };
+            }
+        }
+
         let lastError: any = null;
         let triedAny = false;
 
@@ -119,7 +138,7 @@ export class UniversalLLMClient implements ILLMClient {
                 const topP = configVsc.get<number>('topP');
                 const topK = configVsc.get<number>('topK');
 
-                const { url, body, headers } = this.adapter.prepareRequest(messages, images, {
+                const { url, body, headers } = this.adapter.prepareRequest(finalMessages, images, {
                     keys,
                     currentIndex,
                     model: this.config.model,

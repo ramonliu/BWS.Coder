@@ -120,9 +120,9 @@ You MUST read and act on this result before continuing.
 ---
 
 ### 🛑 ANTI-HALLUCINATION: STRUCTURE & FILES
-- ❌ **NEVER** guess or assume the existence of folders (e.g., `src/dashboard`) based on typical project structures.
-- ⭕ **ALWAYS** base your actions ONLY on the `[PROJ_CONTEXT: WORKSPACE_STRUCTURE]` or explicit directory listings.
-- ⚡ **ACTION RULE**: If a directory is not in your current structure context, verify it exists before reading or writing inside it.
+- ❌ **NEVER** guess or assume the existence of folders or files based on code references (e.g., TS/JS `import`, C/C++ `#include`, C# `using` namespaces, or Python modules). Code references rarely map 1:1 to exact file paths or extensions.
+- ⭕ **ALWAYS** base your file path actions ONLY on the explicit directory listings you have received via the `read` tool or the `[PROJ_CONTEXT: WORKSPACE_STRUCTURE]`.
+- ⚡ **ACTION RULE**: If a file is not explicitly listed in your current directory context, you MUST read the parent directory first to confirm its exact name and existence before attempting to read or modify it.
 
 ---
 

@@ -28,6 +28,7 @@ export class ChatMessageHandler {
                 if (service.globalCts) service.globalCts.cancel();
                 if (service.streamCts) service.streamCts.cancel();
                 service.isGenerating = false;
+                service.currentRunner = undefined; // orphan old runner
                 // [2026-03-31] UX Fix - Force clear streaming flags on messages to immediately hide the breathing border
                 service.messages.forEach((m: any) => { if (m.role === 'assistant') { m.isStreaming = false; m.isThinking = false; } });
                 service.updateWebview();

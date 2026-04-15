@@ -97,6 +97,11 @@ export abstract class ChatExecutor {
         taskName?: string,
         currentTask?: Task
     ): Promise<{ hasOps: boolean, content: string }> {
+        // [2026-04-16] Paranoid Guard - Entry Check
+        if (globalCts?.token.isCancellationRequested || streamCts?.token.isCancellationRequested) {
+            throw new Error('ABORTED');
+        }
+
         state.isGenerating = true;
         state.updateWebview();
 
@@ -146,6 +151,11 @@ export abstract class ChatExecutor {
             }
 
             const dumpPath = this.prepareDebugLog(client, finalMessages, images, taskName);
+
+            // [2026-04-16] Paranoid Guard - Pre-chat Check
+            if (globalCts?.token.isCancellationRequested || turnCts.token.isCancellationRequested) {
+                throw new Error('ABORTED');
+            }
 
             // [2026-03-29] [Fix-Fallback-Logic] - Pass providerId to client.chat to ensure MultiLLMClient starts from the right place
             const stream = client.chat(
@@ -282,9 +292,9 @@ export abstract class ChatExecutor {
                 }
             }
 
-            // [2026-04-16] [Fix-Cancellation-Leak] - If cancelled, return false for hasOps to prevent another turn
+            // [2026-04-16] [Fix-Cancellation-Leak] - If cancelled, THROW to break all loops
             if (globalCts?.token.isCancellationRequested || turnCts.token.isCancellationRequested) {
-                return { hasOps: false, content: fullContent };
+                throw new Error('ABORTED');
             }
 
             if (allResultsCount > 0) {

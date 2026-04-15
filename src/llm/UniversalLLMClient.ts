@@ -75,6 +75,11 @@ export class UniversalLLMClient implements ILLMClient {
         providerId?: string,
         taskName?: string
     ): AsyncGenerator<{ content?: string, thinking?: string }> {
+        // [2026-04-16] Paranoid Guard - Entry Check
+        if (cancellationToken?.isCancellationRequested) {
+            throw new Error('ABORTED');
+        }
+
         const { config: configKey, index: indexKey, name: providerName } = this.adapter.getRotationKeys();
         const keys = this.getApiKeys(configKey);
         const startIndex = this.context.globalState.get<number>(indexKey, 0) || 0;
@@ -97,6 +102,11 @@ export class UniversalLLMClient implements ILLMClient {
         let triedAny = false;
 
         for (let i = 0; i < keys.length; i++) {
+            // [2026-04-16] Paranoid Guard - Rotation Check
+            if (cancellationToken?.isCancellationRequested) {
+                throw new Error('ABORTED');
+            }
+
             const currentIndex = (startIndex + i) % keys.length;
             const key = keys[currentIndex];
             if (exhaustedKeys[key]) continue;
@@ -159,9 +169,15 @@ export class UniversalLLMClient implements ILLMClient {
                 return;
             } catch (error: any) {
                 lastError = error;
-                // [2026-03-26] [APIKeyLoopFix] - Abort immediately without rotating keys if the error is a user cancellation
-                if (cancellationToken?.isCancellationRequested || axios.isCancel(error) || error.name === 'AbortError') {
-                    throw error;
+                // [2026-04-16] Paranoid Guard - Unify cancellation detection
+                const isUserAbort = cancellationToken?.isCancellationRequested || 
+                                   axios.isCancel(error) || 
+                                   error.name === 'AbortError' || 
+                                   error.message === 'ABORTED' ||
+                                   error.message === 'USER_ABORTED';
+
+                if (isUserAbort) {
+                    throw error.message === 'ABORTED' ? error : new Error('ABORTED');
                 }
                 
                 if (error.response?.status === 429) {
@@ -169,6 +185,8 @@ export class UniversalLLMClient implements ILLMClient {
                     await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
                 }
                 if (i < keys.length - 1 && (!error.response || error.response.status === 401 || error.response.status === 429)) {
+                    // [2026-04-16] Paranoid Terminal Guard
+                    if (cancellationToken?.isCancellationRequested || error.message === 'ABORTED') throw error;
                     continue;
                 }
 

@@ -120,6 +120,11 @@ export class MultiLLMClient implements ILLMClient {
     providerId?: string,
     taskName?: string
   ): AsyncGenerator<{ content?: string, thinking?: string }> {
+    // [2026-04-16] Paranoid Guard - Entry Check
+    if (cancellationToken?.isCancellationRequested) {
+      throw new Error('ABORTED');
+    }
+
     const clients = this.getActiveClients();
     let lastError: any = null;
     let switchCount = 0;
@@ -142,8 +147,13 @@ export class MultiLLMClient implements ILLMClient {
       const lastSuccessfulIndex = this.context.globalState.get<number>('lastSuccessfulClientIndex', 0);
       startIndex = Math.min(lastSuccessfulIndex, clients.length - 1);
     }
-
+    
     for (let i = 0; i < clients.length; i++) {
+      // [2026-04-16] Paranoid Guard - Fallback Check
+      if (cancellationToken?.isCancellationRequested) {
+        throw new Error('ABORTED');
+      }
+
       const clientIndex = (startIndex + i) % clients.length;
       const client = clients[clientIndex];
 
@@ -192,7 +202,10 @@ export class MultiLLMClient implements ILLMClient {
         }
 
         if (i < clients.length - 1) {
-          if (cancellationToken?.isCancellationRequested) throw error;
+          // [2026-04-16] Paranoid Guard - Ensure we don't fallback if the error was a cancellation
+          if (cancellationToken?.isCancellationRequested || error.message === 'ABORTED') {
+            throw error;
+          }
           continue;
         }
       }

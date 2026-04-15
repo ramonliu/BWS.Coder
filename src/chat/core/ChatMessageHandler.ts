@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ChatMessage, Attachment, HistoryManager } from '../historyManager';
+import { MemoryPalaceManager } from './MemoryPalaceManager';
 import { WorkflowManager } from '../workflowManager';
 import { PromptBuilder } from '../../utils/prompts';
 import { t } from '../../utils/locale';
@@ -17,8 +18,7 @@ export class ChatMessageHandler {
         private historyManager: HistoryManager,
         private workflowManager: WorkflowManager,
         private messenger: ChatViewMessenger,
-        private runner: ChatRunner,
-        private memoryPath: string
+        private runner: ChatRunner
     ) { }
 
     public async handleMessage(message: any, service: any): Promise<void> {
@@ -127,12 +127,11 @@ export class ChatMessageHandler {
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;
 
-            // 1. Project Memory
-            if (fs.existsSync(this.memoryPath)) {
-                const memoryContent = fs.readFileSync(this.memoryPath, 'utf8');
-                if (memoryContent.trim()) {
-                    projectContext += `\n--- [PROJ_CONTEXT: MEMORY] ---\n${memoryContent}\n`;
-                }
+            // 1. Project Memory (Palace)
+            const memoryPalace = MemoryPalaceManager.getInstance(this.context);
+            const palaceContext = memoryPalace.retrieveRelevant(text);
+            if (palaceContext) {
+                projectContext += `\n--- [PROJ_CONTEXT: MEMORY_PALACE] ---\n${palaceContext}\n`;
             }
 
             // 2. ERROR.md (Lessons Learned)

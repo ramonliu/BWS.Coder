@@ -9,6 +9,7 @@ import { TaskMonitor, TaskMonitorStatus } from '../../taskMonitor';
 import { t, getLang } from '../../../utils/locale';
 import { Task } from '../Task';
 import { MemoryManager } from '../MemoryManager';
+import { MemoryPalaceManager } from '../MemoryPalaceManager';
 import { DebugDB } from '../DebugDB';
 
 export class WorkflowRunner extends ChatExecutor {
@@ -76,6 +77,12 @@ export class WorkflowRunner extends ChatExecutor {
         } finally {
             state.isGenerating = false;
             state.updateWebview();
+            
+            // [2026-04-16] Memory Palace - Automatic Extraction (The Janitor)
+            // Trigger background extraction after the entire workflow finishes or fails.
+            if (!globalCts?.token.isCancellationRequested) {
+                MemoryPalaceManager.getInstance(this.context).extractAndStore(state.messages, state.client, this.context);
+            }
         }
     }
 

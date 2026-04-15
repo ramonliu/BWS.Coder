@@ -9,6 +9,7 @@ import { TaskMonitor } from './taskMonitor';
 import { ChatViewMessenger } from './core/ChatViewMessenger';
 import { ChatMessageHandler } from './core/ChatMessageHandler';
 import { ChatRunner } from './core/ChatRunner';
+import { MemoryPalaceManager } from './core/MemoryPalaceManager';
 
 export enum ChatState {
     INITIAL = 'INITIAL',
@@ -31,7 +32,6 @@ export class ChatService implements vscode.Disposable {
     public currentChatMode: string = 'Single';
     
     public context: vscode.ExtensionContext;
-    private memoryPath: string = '';
     private messenger: ChatViewMessenger;
     private messageHandler: ChatMessageHandler;
     private runner: ChatRunner;
@@ -59,16 +59,16 @@ export class ChatService implements vscode.Disposable {
 
         this.messenger = new ChatViewMessenger(postMessageProvider);
         this.runner = new ChatRunner(context);
-        this.messageHandler = new ChatMessageHandler(context, this.historyManager, this.workflowManager, this.messenger, this.runner, this.memoryPath);
+        this.messageHandler = new ChatMessageHandler(context, this.historyManager, this.workflowManager, this.messenger, this.runner);
         
         TaskMonitor.getInstance(context); // Initialize persistence
+        MemoryPalaceManager.getInstance(context); // Initialize structured memory
     }
 
     private initPaths(context: vscode.ExtensionContext) {
         const storageUri = context.storageUri || context.globalStorageUri;
         const storageDir = storageUri.fsPath;
         if (!fs.existsSync(storageDir)) fs.mkdirSync(storageDir, { recursive: true });
-        this.memoryPath = path.join(storageDir, 'memory.md');
     }
 
     public generateId() { return Math.random().toString(36).substring(2, 11); }
@@ -79,7 +79,7 @@ export class ChatService implements vscode.Disposable {
     public updateWebview() { this.messenger.updateWebview(this.currentSessionId, this.messages, this.isGenerating, this.workflowManager, this.client, this.currentChatMode); }
     public sendSessions() { this.messenger.sendSessions(this.historyManager); }
     public sendLLMStats() { this.messenger.sendLLMStats(this.context); }
-    public async sendMemory() { await this.messenger.sendMemory(this.memoryPath); }
+    public async sendMemory() { await this.messenger.sendMemory(); }
 
     public loadSession(id: string) {
         if (this.isGenerating && this.globalCts) this.globalCts.cancel();

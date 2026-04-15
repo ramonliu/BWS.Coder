@@ -7,6 +7,7 @@ import { ensureMandatoryRoles } from '../../../llm/utils';
 import { Task } from '../Task';
 import { TaskMonitor, TaskMonitorStatus } from '../../taskMonitor';
 import { MemoryManager } from '../MemoryManager';
+import { MemoryPalaceManager } from '../MemoryPalaceManager';
 import { DebugDB } from '../DebugDB';
 import { FileOpResult } from '../../fileOperations';
 
@@ -130,6 +131,11 @@ export class ConcurrentChatRunner extends ChatExecutor {
         } finally {
             state.isGenerating = false;
             state.updateWebview();
+
+            // [2026-04-16] Memory Palace - Automatic Extraction (The Janitor)
+            if (currentState === ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
+                MemoryPalaceManager.getInstance(this.context).extractAndStore(state.messages, state.client, this.context);
+            }
         }
     }
 }

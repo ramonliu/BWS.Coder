@@ -8,6 +8,7 @@ import { Task } from '../Task';
 import { MemoryManager } from '../MemoryManager';
 import { DebugDB } from '../DebugDB';
 import { TaskMonitor, TaskMonitorStatus } from '../../taskMonitor';
+import { MemoryPalaceManager } from '../MemoryPalaceManager';
 
 export class SingleChatRunner extends ChatExecutor {
     public async run(
@@ -108,6 +109,12 @@ export class SingleChatRunner extends ChatExecutor {
                         currentState = ChatState.IDLE;
                     }
                 }
+            }
+
+            // [2026-04-16] Memory Palace - Automatic Extraction (The Janitor)
+            // Trigger background extraction after the session finishes normally.
+            if (currentState === ChatState.IDLE && !globalCts?.token.isCancellationRequested) {
+                MemoryPalaceManager.getInstance(this.context).extractAndStore(state.messages, state.client, this.context);
             }
         } finally {
             state.isGenerating = false;

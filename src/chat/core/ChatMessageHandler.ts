@@ -55,7 +55,8 @@ export class ChatMessageHandler {
         if (service.isGenerating) {
             if (service.globalCts) service.globalCts.cancel();
             if (service.streamCts) service.streamCts.cancel();
-            await new Promise(r => setTimeout(r, 200));
+            service.isGenerating = false;
+            await new Promise(r => setTimeout(r, 400));
         }
 
         const config = vscode.workspace.getConfiguration('bwsCoder');

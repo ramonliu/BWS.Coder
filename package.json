@@ -117,7 +117,7 @@
       "properties": {
         "bwsCoder.temperature": {
           "type": "number",
-          "default": 1.0,
+          "default": 1,
           "description": "Generation temperature (0-1, lower is more precise)",
           "order": 1
         },
@@ -213,9 +213,9 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^3.8.1",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.2",
-    "@vscode/vsce": "^3.7.1"
+    "typescript": "^5.3.2"
   },
   "dependencies": {
     "axios": "^1.6.2"

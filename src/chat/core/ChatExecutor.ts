@@ -266,7 +266,8 @@ export abstract class ChatExecutor {
                 state.updateWebview();
             }
 
-            if (allResultsCount > 0) {
+            // [2026-04-16] [Fix-Cancellation-Leak] - Only push feedback and transition to next state if not cancelled
+            if (allResultsCount > 0 && !globalCts?.token.isCancellationRequested && !turnCts.token.isCancellationRequested) {
                 if (currentTask) {
                     currentTask.transition(TaskState.FEEDBACK);
                     // 如果有 Task，主動推送一則訊息作為執行結果回報給 AI
@@ -279,14 +280,21 @@ export abstract class ChatExecutor {
                     state.messages.push(feedbackMsg);
                     currentTask.transition(TaskState.FINISHED);
                 }
+            }
 
+            // [2026-04-16] [Fix-Cancellation-Leak] - If cancelled, return false for hasOps to prevent another turn
+            if (globalCts?.token.isCancellationRequested || turnCts.token.isCancellationRequested) {
+                return { hasOps: false, content: fullContent };
+            }
+
+            if (allResultsCount > 0) {
                 state.updateWebview();
                 const activeProviderIdStatus = providerId || client.getProviderId();
                 TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.REPORTING, client.isCloudProvider(), t(getLang(), 'msg_reporting', allResultsCount), taskName);
                 state.broadcast({ command: 'llmStats', stats: TaskMonitor.getInstance(this.context).getStats() });
 
                 // 延遲一下讓使用者看到 REPORTING 狀態
-                await new Promise(resolve => setTimeout(resolve, 800));
+                await this.cancellableSleep(800, globalCts?.token, turnCts.token);
 
                 TaskMonitor.getInstance(this.context).updateStatus(activeProviderIdStatus, assistantMessage.providerName || 'AI', TaskMonitorStatus.IDLE, client.isCloudProvider(), undefined, taskName);
                 TaskMonitor.getInstance(this.context).recordActivity(activeProviderIdStatus, 0, Date.now() - streamStartTime);
@@ -595,4 +603,28 @@ export abstract class ChatExecutor {
 
     //     return null;
     // }
+    /**
+     * [2026-04-16] Cancellation-aware sleep utility.
+     */
+    protected async cancellableSleep(ms: number, ...tokens: (vscode.CancellationToken | undefined)[]) {
+        return new Promise<void>(resolve => {
+            const timeout = setTimeout(resolve, ms);
+            const subs = tokens.map(t => t?.onCancellationRequested(() => {
+                clearTimeout(timeout);
+                resolve();
+            }));
+            const cleanup = () => {
+                subs.forEach(s => s?.dispose());
+                clearTimeout(timeout);
+            };
+            const timer = setTimeout(() => {
+                cleanup();
+                resolve();
+            }, ms);
+            tokens.forEach(t => t?.onCancellationRequested(() => {
+                cleanup();
+                resolve();
+            }));
+        });
+    }
 }

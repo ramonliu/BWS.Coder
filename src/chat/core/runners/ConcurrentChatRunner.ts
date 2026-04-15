@@ -92,6 +92,12 @@ export class ConcurrentChatRunner extends ChatExecutor {
                     // 3. AI 串流解析與執行 (AI1 -> AI2 -> CHUNK -> T2)
                     // // [2026-03-29] [Fix-UI-Hang] - Ensure state is reset even on API failure
                     const result = await this.executeAITurn(state, state.client, finalPromptMessages, images, globalCts, streamCts, undefined, undefined, 'ConcurrentTask', task);
+                    
+                    // [2026-04-16] [Fix-Cancellation-Leak] - Ensure immediate stop even if executeAITurn returns result
+                    if (globalCts?.token.isCancellationRequested) {
+                        currentState = ChatState.IDLE;
+                        break;
+                    }
 
                     // 4. 紀錄審計日誌
                     const db = DebugDB.getInstance(this.context);

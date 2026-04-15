@@ -171,6 +171,12 @@ export class WorkflowRunner extends ChatExecutor {
 
             // [2026-03-29] [Fix-Fallback-Logic] - Pass current step's providerId without unwrapping the client
             const result = await this.executeAITurn(state, state.client, workflowMessages, images, globalCts, streamCts, step.providerId, state.client.getProviderName(), step.role, task);
+            
+            // [2026-04-16] [Fix-Cancellation-Leak] - Ensure immediate stop even if executeAITurn returns result
+            if (globalCts?.token.isCancellationRequested) {
+                isStepDone = true;
+                break;
+            }
 
             // 2. Log full state to DebugDB for audit trail (async)
             const db = DebugDB.getInstance(this.context);

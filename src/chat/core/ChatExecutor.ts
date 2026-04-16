@@ -133,6 +133,8 @@ export abstract class ChatExecutor {
         const pendingOperations: Promise<any>[] = [];
         const parser = new StreamingParser(() => state.generateId());
         let allResultsCount = 0; // Tracks total operations executed for the final feedback count
+        // [2026-04-17] [Fix-Execute-ABORTED] - Flag to distinguish "stream paused for execute" vs "user actually cancelled"
+        let cancelledForExecute = false;
 
         try {
             // [2026-03-29] [Fix-Fallback-Logic] - Use provided ID for monitor, or default to client's ID
@@ -229,6 +231,7 @@ export abstract class ChatExecutor {
                         pendingOperations.push(batchPromise);
 
                         if (hasExecute) {
+                            cancelledForExecute = true; // [2026-04-17] Mark as paused-for-execute, NOT user abort
                             turnCts.cancel();
                             break;
                         }
@@ -277,7 +280,9 @@ export abstract class ChatExecutor {
             }
 
             // [2026-04-16] [Fix-Cancellation-Leak] - Only push feedback and transition to next state if not cancelled
-            if (allResultsCount > 0 && !globalCts?.token.isCancellationRequested && !turnCts.token.isCancellationRequested) {
+            // [2026-04-17] [Fix-Execute-ABORTED] - cancelledForExecute means we paused stream for execute, NOT a real abort
+            const isReallyAborted = globalCts?.token.isCancellationRequested || (turnCts.token.isCancellationRequested && !cancelledForExecute);
+            if (allResultsCount > 0 && !isReallyAborted) {
                 if (currentTask) {
                     currentTask.transition(TaskState.FEEDBACK);
                     // 如果有 Task，主動推送一則訊息作為執行結果回報給 AI
@@ -293,7 +298,8 @@ export abstract class ChatExecutor {
             }
 
             // [2026-04-16] [Fix-Cancellation-Leak] - If cancelled, THROW to break all loops
-            if (globalCts?.token.isCancellationRequested || turnCts.token.isCancellationRequested) {
+            // [2026-04-17] [Fix-Execute-ABORTED] - Only throw if it's a real abort (globalCts), not just paused-for-execute
+            if (isReallyAborted) {
                 throw new Error('ABORTED');
             }
 

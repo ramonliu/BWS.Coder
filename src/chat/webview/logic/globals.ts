@@ -3,7 +3,7 @@ export class Globals {
         return `
             var vscode = acquireVsCodeApi();
             window.vscode = vscode;
-            var messages = [], attachments = [], isGenerating = false, currentSessionId = 'Single', chatMode = 'Single';
+            var messages = [], attachments = [], isGenerating = false, currentSessionId = 'Single', chatMode = 'Single', baseCtxChars = 0;
             var blockStates = {}; // 追蹤區塊狀態: messageId -> boolean
             var domCache = new Map(); // [2026-03-30] Performance: ID -> DOM
             var htmlCache = {}; // [2026-03-30] Performance: ID -> HTML

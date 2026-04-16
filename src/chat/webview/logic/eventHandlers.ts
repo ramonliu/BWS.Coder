@@ -17,6 +17,10 @@ export class EventHandlers {
                         if (m.isPoppedOut) document.body.classList.add('is-popped-out');
                         else document.body.classList.remove('is-popped-out');
                     }
+                    if (m.contextSize !== undefined) {
+                        baseCtxChars = m.contextSize;
+                        window.updateCtxMonitor();
+                    }
                     render();
                 } else if(m.command === 'sessionsLoaded') {
                     var s = document.getElementById('sidebar');
@@ -60,7 +64,7 @@ export class EventHandlers {
             }
             if (inp) {
                 inp.onkeydown = function(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.sendMessage(); } };
-                inp.oninput = function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; };
+                inp.oninput = function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; window.updateCtxMonitor(); };
                 inp.onpaste = function(e) {
                     var cbData = e.clipboardData || (window.clipboardData);
                     if (!cbData) return;
@@ -113,6 +117,28 @@ export class EventHandlers {
                 // [2026-03-26] UX Fix - Notify extension to persist current mode across resets
                 vscode.postMessage({command:'setChatMode', mode: mode});
                 render();
+            };
+
+            window.updateCtxMonitor = function() {
+                var val = document.getElementById('ctxUsageValue');
+                var indicator = document.getElementById('ctxUsage');
+                if (!val || !indicator) return;
+                
+                var currentInput = document.getElementById('input') ? document.getElementById('input').value : '';
+                var totalChars = (typeof baseCtxChars !== 'undefined' ? baseCtxChars : 0) + currentInput.length;
+                
+                // Heuristic: 4 characters per token
+                var tokens = Math.ceil(totalChars / 4);
+                val.textContent = tokens.toLocaleString();
+                
+                // Styling based on limits (assuming 128k limit for indicators)
+                if (tokens > 100000) {
+                    indicator.className = 'ctx-usage-container ctx-usage-danger';
+                } else if (tokens > 64000) {
+                    indicator.className = 'ctx-usage-container ctx-usage-warning';
+                } else {
+                    indicator.className = 'ctx-usage-container';
+                }
             };
         `;
     }

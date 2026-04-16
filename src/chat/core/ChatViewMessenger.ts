@@ -27,7 +27,7 @@ export class ChatViewMessenger {
         this.messageProviders.forEach(p => p(msg));
     }
 
-    public updateWebview(sessionId: string, messages: ChatMessage[], isGenerating: boolean, workflowManager: WorkflowManager, client: ILLMClient, chatMode?: string) {
+    public updateWebview(sessionId: string, messages: ChatMessage[], isGenerating: boolean, workflowManager: WorkflowManager, client: ILLMClient, chatMode?: string, contextSize?: number) {
         this.broadcast({
             command: 'updateMessages',
             sessionId: sessionId,
@@ -41,7 +41,9 @@ export class ChatViewMessenger {
             // [2026-03-24] Feature - Propagate chatMode to allow webview mode selector to sync
             chatMode: chatMode,
             // [2026-04-16] Memory Palace - Send raw data for advanced rendering
-            memoryPalace: MemoryPalaceManager.getInstance().getRawData()
+            memoryPalace: MemoryPalaceManager.getInstance().getRawData(),
+            // [2026-04-17] Context Monitor - Send updated context size
+            contextSize: contextSize || 0
         });
     }
 

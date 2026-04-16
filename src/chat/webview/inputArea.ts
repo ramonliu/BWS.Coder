@@ -21,6 +21,14 @@ export class InputArea {
                             </button>
                         </div>
                     </div>
+                    <div id="ctxUsage" class="ctx-usage-container">
+                        <div class="ctx-usage-indicator">
+                            <span class="ctx-usage-dot"></span>
+                            <span class="ctx-usage-label">${t(lang, 'ui_context_usage')}:</span>
+                            <span class="ctx-usage-value" id="ctxUsageValue">0</span>
+                            <span class="ctx-usage-unit">/ 128k ${t(lang, 'ui_tokens')}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;

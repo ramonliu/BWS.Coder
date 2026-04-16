@@ -76,7 +76,7 @@ export class ChatService implements vscode.Disposable {
     public addMessageProvider(provider: (msg: any) => Thenable<boolean>) { this.messenger.addMessageProvider(provider); }
     public removeMessageProvider(provider: (msg: any) => Thenable<boolean>) { this.messenger.removeMessageProvider(provider); }
     public broadcast(msg: any) { this.messenger.broadcast(msg); }
-    public updateWebview() { this.messenger.updateWebview(this.currentSessionId, this.messages, this.isGenerating, this.workflowManager, this.client, this.currentChatMode); }
+    public updateWebview() { this.messenger.updateWebview(this.currentSessionId, this.messages, this.isGenerating, this.workflowManager, this.client, this.currentChatMode, this.calculateContextSize()); }
     public sendSessions() { this.messenger.sendSessions(this.historyManager); }
     public sendLLMStats() { this.messenger.sendLLMStats(this.context); }
     public async sendMemory() { await this.messenger.sendMemory(); }
@@ -174,6 +174,66 @@ export class ChatService implements vscode.Disposable {
 
     public async handleUserMessage(text: string, attachments?: Attachment[]): Promise<void> {
         await this.messageHandler.handleUserMessage(text, this, attachments);
+    }
+
+    public calculateContextSize(): number {
+        // [2026-04-17] Context Monitor - Sum all message contents
+        let totalChars = 0;
+        this.messages.forEach(m => {
+            totalChars += (m.content || '').length;
+            if (m.thinking) totalChars += m.thinking.length;
+        });
+
+        // [2026-04-17] Context Monitor - Add dynamic overhead
+        totalChars += this.calculateSystemOverhead();
+
+        // Add memory palace size if available
+        try {
+            const memory = MemoryPalaceManager.getInstance().getRawData();
+            const currentWing = vscode.workspace.name || 'Global';
+            const wingData = memory.wings[currentWing];
+            if (wingData) {
+                totalChars += JSON.stringify(wingData).length;
+            }
+        } catch (e) {}
+
+        return totalChars;
+    }
+
+    private calculateSystemOverhead(): number {
+        let overhead = 500; // Base identity & capabilities (identity chars + coreCapability chars)
+        
+        try {
+            // 1. Core Prompt Files
+            const personaPath = path.join(this.context.extensionPath, 'prompts', 'Personalization.md');
+            const formatPath = path.join(this.context.extensionPath, 'prompts', 'ActionFormat.md');
+            
+            if (fs.existsSync(personaPath)) overhead += fs.statSync(personaPath).size;
+            if (fs.existsSync(formatPath)) overhead += fs.statSync(formatPath).size;
+
+            // 2. Workspace Context
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                const workspacePath = workspaceFolders[0].uri.fsPath;
+                
+                // task_plan.md & findings.md
+                const planPath = path.join(workspacePath, 'task_plan.md');
+                const findingsPath = path.join(workspacePath, 'findings.md');
+                const errorPath = path.join(workspacePath, 'ERROR.md');
+
+                if (fs.existsSync(planPath)) overhead += fs.statSync(planPath).size;
+                if (fs.existsSync(findingsPath)) overhead += fs.statSync(findingsPath).size;
+                if (fs.existsSync(errorPath)) overhead += fs.statSync(errorPath).size;
+                
+                // [2026-03-25] [Planning-Notification-Wrap] - Add the notification wrapper overhead (~500 chars)
+                overhead += 500;
+            }
+        } catch (e) {
+            console.error('[ChatService] Error calculating overhead:', e);
+            return 2000; // Fallback to safe estimate
+        }
+
+        return overhead;
     }
 
     public dispose() {

@@ -690,6 +690,44 @@ export class Styles {
             }
             .add-step-btn:hover { background: var(--vscode-button-secondaryHoverBackground); transform: scale(1.01); }
 
+            /* Context Usage Monitor */
+            .ctx-usage-container {
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 6px;
+                padding: 0 12px 4px 12px;
+                font-size: 10px;
+                color: var(--vscode-descriptionForeground);
+                opacity: 0.7;
+                user-select: none;
+            }
+            .ctx-usage-indicator {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 6px;
+                background: rgba(0,0,0,0.2);
+                border-radius: 4px;
+            }
+            .ctx-usage-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #4ec9b0;
+                box-shadow: 0 0 5px rgba(78, 201, 176, 0.5);
+                transition: background 0.3s;
+            }
+            .ctx-usage-value {
+                font-family: var(--vscode-editor-font-family);
+                font-weight: bold;
+                transition: color 0.3s;
+            }
+            .ctx-usage-warning { color: #f59e0b; opacity: 1; }
+            .ctx-usage-warning .ctx-usage-dot { background: #f59e0b; box-shadow: 0 0 5px rgba(245, 158, 11, 0.8); }
+            .ctx-usage-danger { color: #ef4444; opacity: 1; }
+            .ctx-usage-danger .ctx-usage-dot { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.9); animation: pulseRed 1s infinite; }
+
             /* Popped Out State Overlay */
             .popped-out-overlay { 
                 display: none; 

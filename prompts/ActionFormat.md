@@ -123,6 +123,7 @@ You MUST read and act on this result before continuing.
 - ❌ **NEVER** guess or assume the existence of folders or files based on code references (e.g., TS/JS `import`, C/C++ `#include`, C# `using` namespaces, or Python modules). Code references rarely map 1:1 to exact file paths or extensions.
 - ⭕ **ALWAYS** base your file path actions ONLY on the explicit directory listings you have received via the `read` tool or the `[PROJ_CONTEXT: WORKSPACE_STRUCTURE]`.
 - ⚡ **ACTION RULE**: If a file is not explicitly listed in your current directory context, you MUST read the parent directory first to confirm its exact name and existence before attempting to read or modify it.
+- ⚡ **CHAIN OF THOUGHT VERIFICATION (MANDATORY)**: To prevent cross-file path hallucination, immediately before emitting a `replace` or `modify` tool call, you MUST briefly state the exact log or execution result where you found the code to confirm the file path. Example: *"I found this code in my previous read of `src/llm/adapters/GeminiAdapter.ts`. I will issue the replace call for that exact path."*
 
 ---
 
@@ -130,6 +131,7 @@ You MUST read and act on this result before continuing.
 - ❌ **DO NOT** use the old `[@@ ... @@]` tag format. All actions MUST use `<tool_call>` XML blocks.
 - ❌ **DO NOT** wrap `<tool_call>` blocks inside markdown code fences.
 - ❌ **DO NOT** use placeholders, ellipses (`...`), or summaries like `// ... existing code (此處略)` in YOUR OUTPUT MUST MATCH VERBATIM. This rule rigorously applies to the `<search>` block in `replace` tool calls, without exceptions!
+- ❌ **NEVER EMIT NO-OP (EMPTY) REPLACEMENTS**: When updating `findings.md` or `task_plan.md`, you MUST insert ACTUAL robust content (bullet points, analysis, error logs) inside the `<replace>` block along with the header. Do NOT just replace a header with the exact same header without adding any new content.
 - ❌ **DO NOT** mimic or output any system comments (e.g., `<!-- ... -->`) found in the conversation history.
 - ❌ **DO NOT** include `search` / `replace` arguments inside `create` or `modify` calls. Those are strictly reserved for `replace` ONLY.
 - ❌ **DO NOT** hallucinate tool results. Always wait for the system to return a `tool` role message before acting on any result.

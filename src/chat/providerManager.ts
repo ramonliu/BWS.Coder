@@ -74,7 +74,7 @@ export class ProviderManagerPanel {
                     await this.toggleProvider(message.id, message.enabled);
                     break;
                 case 'resetAllApiKeyCD':
-                    await this.resetAllApiKeyCD(message.keys);
+                    await this.resetAllApiKeyCD(message.keys, message.endpoint);
                     break;
             }
         });
@@ -172,13 +172,20 @@ export class ProviderManagerPanel {
         await this.saveProviders(providers);
     }
 
-    private async resetAllApiKeyCD(keys: string[]) {
+    private async resetAllApiKeyCD(keys: string[], endpoint?: string) {
         const lang = getLang();
         const exhaustedKeys = this.context.globalState.get<{ [key: string]: number }>('exhaustedApiKeys', {}) || {};
         let changed = false;
         for (const key of keys) {
             if (exhaustedKeys[key]) {
                 delete exhaustedKeys[key];
+                changed = true;
+            }
+        }
+        if (endpoint) {
+            const emptyKey = `__endpoint__:${endpoint}`;
+            if (exhaustedKeys[emptyKey]) {
+                delete exhaustedKeys[emptyKey];
                 changed = true;
             }
         }

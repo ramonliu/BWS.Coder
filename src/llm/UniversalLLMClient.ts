@@ -54,7 +54,10 @@ export class UniversalLLMClient implements ILLMClient {
         const exhaustedKeys = this.context.globalState.get<{ [key: string]: number }>('exhaustedApiKeys', {}) || {};
         const now = Date.now();
         const ONE_DAY = 24 * 60 * 60 * 1000;
-        return keys.every(k => !!exhaustedKeys[k] && (now - exhaustedKeys[k] < ONE_DAY));
+        return keys.every(k => {
+            const trackKey = k ? k : `__endpoint__:${this.config.endpoint}`;
+            return !!exhaustedKeys[trackKey] && (now - exhaustedKeys[trackKey] < ONE_DAY);
+        });
     }
 
     private getApiKeys(configKey: string): string[] {
@@ -92,9 +95,16 @@ export class UniversalLLMClient implements ILLMClient {
         for (const k in exhaustedKeys) {
             if (now - exhaustedKeys[k] > ONE_DAY) { delete exhaustedKeys[k]; changed = true; }
         }
+        if (exhaustedKeys['']) {
+            delete exhaustedKeys['']; // Cleanup bug state
+            changed = true;
+        }
         if (changed) await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
 
-        if (keys.every(k => !!exhaustedKeys[k])) {
+        if (keys.every(k => {
+            const trackKey = k ? k : `__endpoint__:${this.config.endpoint}`;
+            return !!exhaustedKeys[trackKey];
+        })) {
             throw new Error(`所有 ${providerName} API Key 皆已耗盡並進入 1 天冷卻期`);
         }
 
@@ -128,7 +138,8 @@ export class UniversalLLMClient implements ILLMClient {
 
             const currentIndex = (startIndex + i) % keys.length;
             const key = keys[currentIndex];
-            if (exhaustedKeys[key]) continue;
+            const trackKey = key ? key : `__endpoint__:${this.config.endpoint}`;
+            if (exhaustedKeys[trackKey]) continue;
             triedAny = true;
 
             try {
@@ -200,7 +211,7 @@ export class UniversalLLMClient implements ILLMClient {
                 }
                 
                 if (error.response?.status === 429) {
-                    exhaustedKeys[key] = Date.now();
+                    exhaustedKeys[trackKey] = Date.now();
                     await this.context.globalState.update('exhaustedApiKeys', exhaustedKeys);
                 }
                 if (i < keys.length - 1 && (!error.response || error.response.status === 401 || error.response.status === 429)) {

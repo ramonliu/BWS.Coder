@@ -101,8 +101,10 @@ export class ProviderHtml {
                 currentExhaustedKeys = event.data.exhaustedKeys || {};
                 renderProviders(currentProviders);
                 // [2026-03-30] Fix CD Reset UI Feedback - Sync exhausted class for existing inputs
+                const endpoint = document.getElementById('endpoint') ? document.getElementById('endpoint').value.trim() : '';
                 document.querySelectorAll('#keyList .key-input').forEach(input => {
-                    const isExhausted = !!currentExhaustedKeys[input.value.trim()];
+                    const val = input.value.trim();
+                    const isExhausted = val ? !!currentExhaustedKeys[val] : !!currentExhaustedKeys['__endpoint__:' + endpoint];
                     if (isExhausted) {
                         input.classList.add('exhausted');
                     } else {
@@ -164,15 +166,16 @@ export class ProviderHtml {
         // [2026-03-30] Fix CD Reset UI Feedback - Add optimistic UI update
         function resetAllKeys() {
             const keys = [];
-            document.querySelectorAll(\'#keyList input\').forEach(input => {
+            const endpoint = document.getElementById('endpoint').value.trim();
+            document.querySelectorAll('#keyList input').forEach(input => {
                 if (input.value.trim()) {
                     keys.push(input.value.trim());
-                    input.classList.remove(\'exhausted\');
+                    input.classList.remove('exhausted');
+                } else if (endpoint) {
+                    input.classList.remove('exhausted');
                 }
             });
-            if (keys.length > 0) {
-                vscode.postMessage({ command: \'resetAllApiKeyCD\', keys: keys });
-            }
+            vscode.postMessage({ command: 'resetAllApiKeyCD', keys: keys, endpoint: endpoint });
         }
 
         function removeKeyField(id) {
@@ -253,7 +256,8 @@ export class ProviderHtml {
                     addKeyField(k, isExhausted);
                 });
             } else {
-                addKeyField();
+                const isExhausted = !!currentExhaustedKeys['__endpoint__:' + p.endpoint];
+                addKeyField('', isExhausted);
             }
             renderProviders(currentProviders);
         }

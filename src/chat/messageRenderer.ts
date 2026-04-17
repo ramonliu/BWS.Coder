@@ -18,7 +18,7 @@ export class MessageRenderer {
         const debugMode = config.get<boolean>('debugMode') || false;
 
         // [2026-03-24] UI Fix - Hide raw [Execution Result] user messages unless debug mode is on
-        const isExecutionResult = m.role === 'user' && m.content.startsWith('[Execution Result]');
+        const isExecutionResult = m.role === 'user' && m.content.trim().startsWith('[Execution Result]');
         if (isExecutionResult && !debugMode) {
             return '';
         }

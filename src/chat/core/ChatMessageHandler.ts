@@ -580,6 +580,8 @@ export class ChatMessageHandler {
         const sections: Record<string, string> = {};
         const parts = source.split(/^#\s+/m);
 
+        const globalRules = parts[0] ? parts[0].trim() + '\n\n' : '';
+
         parts.forEach(p => {
             const lines = p.split('\n');
             const title = lines[0].trim();
@@ -600,12 +602,12 @@ export class ChatMessageHandler {
             if (rule.terms.some(t => text.toLowerCase().includes(t))) {
                 if (sections[rule.key]) {
                     console.log(`[BWS Coder] Dynamic Persona Switched to: ${rule.key}`);
-                    return sections[rule.key];
+                    return globalRules + sections[rule.key];
                 }
             }
         }
 
-        return sections['default'] || (parts[0] ? parts[0] : '');
+        return globalRules + (sections['default'] || '');
     }
 
     // [2026-03-28] [Task-AntiHallucination] - Fetch up to 2 layers of directory structure to prevent AI from guessing paths (e.g., bin, obj)

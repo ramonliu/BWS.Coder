@@ -40,9 +40,22 @@ export class OpenAIAdapter implements ILLMAdapter {
         const url = `${endpoint}/chat/completions`;
 
         // [2026-03-25] [Parameter Injection Fix] - Inject temperature and max_tokens from global settings.
+        // [2026-04-17] Multimodal Support - Transform last user message to content blocks if images exist
         const body: any = {
             model,
-            messages: roleCorrectedMessages.map(m => ({ role: m.role, content: m.content })),
+            messages: roleCorrectedMessages.map((m, idx) => {
+                const isLast = idx === roleCorrectedMessages.length - 1;
+                if (isLast && m.role === 'user' && images && images.length > 0) {
+                    const contentBlocks: any[] = [{ type: 'text', text: m.content }];
+                    images.forEach(img => {
+                        // Ensure data URI prefix if missing (OpenAI requires it)
+                        const url = img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`;
+                        contentBlocks.push({ type: 'image_url', image_url: { url } });
+                    });
+                    return { role: m.role, content: contentBlocks };
+                }
+                return { role: m.role, content: m.content };
+            }),
             stream: true
         };
 

@@ -142,16 +142,37 @@ export class ChatService implements vscode.Disposable {
 
         if (uris && uris.length > 0) {
             for (const uri of uris) {
-                const data = await fs.promises.readFile(uri.fsPath);
                 const ext = path.extname(uri.fsPath).slice(1);
-                const mime = ext === 'jpg' ? 'image/jpeg' : (ext === 'png' ? 'image/png' : `image/${ext}`);
-                const base64 = data.toString('base64');
-                const attachment: Attachment = {
-                    type: ext.match(/(png|jpg|jpeg|gif|webp)/i) ? 'image' : 'file',
-                    name: path.basename(uri.fsPath),
-                    content: `data:${mime};base64,${base64}`
-                };
-                this.messenger.broadcast({ command: 'fileLoaded', attachment });
+                const isImage = !!ext.match(/(png|jpg|jpeg|gif|webp)/i);
+                
+                let content = '';
+                let type: 'image' | 'file' = 'file';
+
+                try {
+                    if (isImage) {
+                        const data = await fs.promises.readFile(uri.fsPath);
+                        const mime = ext === 'jpg' ? 'image/jpeg' : (ext === 'png' ? 'image/png' : `image/${ext}`);
+                        const base64 = data.toString('base64');
+                        content = `data:${mime};base64,${base64}`;
+                        type = 'image';
+                    } else {
+                        // [2026-04-17] File Support - Read non-image files as UTF-8 text
+                        content = await fs.promises.readFile(uri.fsPath, 'utf8');
+                        type = 'file';
+                    }
+
+                    const attachment: Attachment = {
+                        type,
+                        name: path.basename(uri.fsPath),
+                        content
+                    };
+                    this.messenger.broadcast({ command: 'fileLoaded', attachment });
+                } catch (err) {
+                    console.error('[ChatService] Failed to read file:', err);
+                    const lang = require('../utils/locale').getLang();
+                    const t = require('../utils/locale').t;
+                    vscode.window.showErrorMessage(`${t(lang, 'err_fileRead')}: ${path.basename(uri.fsPath)}`);
+                }
             }
         }
     }
@@ -182,6 +203,12 @@ export class ChatService implements vscode.Disposable {
         this.messages.forEach(m => {
             totalChars += (m.content || '').length;
             if (m.thinking) totalChars += m.thinking.length;
+            // [2026-04-17] Context Estimate - Add overhead for image attachments (approx 1000 tokens each)
+            if (m.attachments) {
+                m.attachments.forEach(a => {
+                    if (a.type === 'image') totalChars += 4000;
+                });
+            }
         });
 
         // [2026-04-17] Context Monitor - Add dynamic overhead

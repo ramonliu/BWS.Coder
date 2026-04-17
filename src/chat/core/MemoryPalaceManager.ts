@@ -147,7 +147,15 @@ export class MemoryPalaceManager {
             const dialogue = messages
                 .filter(m => m.role === 'user' || m.role === 'assistant')
                 .slice(-10) // Only look at recent context to avoid token bloat
-                .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+                .map(m => {
+                    let text = `${m.role.toUpperCase()}: ${m.content}`;
+                    if (m.attachments && m.attachments.length > 0) {
+                        m.attachments.forEach((a: any) => {
+                            text += `\n[${a.type.toUpperCase()} ATTACHED: ${a.name}]`;
+                        });
+                    }
+                    return text;
+                })
                 .join('\n\n');
 
             const extractionMessages = [

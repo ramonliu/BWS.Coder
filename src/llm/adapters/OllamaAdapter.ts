@@ -27,9 +27,20 @@ export class OllamaAdapter implements ILLMAdapter {
         const url = `${endpoint.replace(/\/+$/, '')}/api/chat`;
 
         // [2026-03-25] [Parameter Injection Fix] - Inject temperature and num_predict from global settings.
+        // [2026-04-17] Multimodal Support - Inject images into the last user message if present
         const body: any = {
             model,
-            messages: messages.map(m => ({ role: m.role, content: m.content })),
+            messages: messages.map((m, idx) => {
+                const isLast = idx === messages.length - 1;
+                const msgObj: any = { role: m.role, content: m.content };
+                if (isLast && m.role === 'user' && images && images.length > 0) {
+                    msgObj.images = images.map(img => {
+                        // Ollama expects raw base64 without the "data:image/...;base64," prefix
+                        return img.includes('base64,') ? img.split('base64,')[1] : img;
+                    });
+                }
+                return msgObj;
+            }),
             stream: true,
             options: {}
         };

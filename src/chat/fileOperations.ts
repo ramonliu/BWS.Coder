@@ -279,12 +279,20 @@ function generateDiffHint(fileLines: string[], searchLines: string[]): string {
   for (let i = 0; i < limit; i++) {
     let score = 0;
     for (let j = 0; j < n; j++) {
-      if (fileLines[i + j].trim() === searchLines[j].trim()) score++;
+      const sTrim = searchLines[j].trim();
+      if (sTrim && sTrim === fileLines[i + j].trim()) {
+        score++;
+      }
     }
     if (score > bestScore) {
       bestScore = score;
       bestStart = i;
     }
+  }
+
+  // If no non-empty matching lines were found, the search block is totally different
+  if (bestScore === 0) {
+    return '';
   }
 
   // Find the first mismatch in the best matching window
@@ -304,8 +312,9 @@ function generateDiffHint(fileLines: string[], searchLines: string[]): string {
         pointerLine += (s[c] === '\t' ? '\t' : ' ');
       }
       
-      const lineNum = bestStart + i + 1;
-      pointerLine += '^^^^^ 不同處第 ' + lineNum + ' 行, 第 ' + (diffCol + 1) + ' 個字起';
+      const fileLineNum = bestStart + i + 1;
+      const searchLineNum = i + 1;
+      pointerLine += `^^^^^ search 區塊第 ${searchLineNum} 行不符 (對應檔案第 ${fileLineNum} 行)`;
       
       return `\n\n[差異提示]\n\`\`\`\n${s}\n${pointerLine}\n\`\`\`\n(檔案實際內容: ${a})`;
     }

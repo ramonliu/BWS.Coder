@@ -1,6 +1,6 @@
 import { MessageBlock } from '../historyManager';
 import { FILE_OP_ACTIONS, findToolCallStart, TAG_TOOL_CALL_END } from '../constants';
-import { extractTag } from '../../utils/xmlUtils';
+import { extractTag, unescapeXml } from '../../utils/xmlUtils';
 import { stripMarkdownCodeBlocks } from '../fileOperations';
 
 type ParserState = 'TEXT' | 'TOOL_CALL' | 'THOUGHT';
@@ -210,8 +210,7 @@ export class StreamingParser {
         } else if (block.action === 'execute') {
             realContent = block.filePath || '';
         }
-        
-        block.content = stripMarkdownCodeBlocks(realContent);
+        block.content = unescapeXml(stripMarkdownCodeBlocks(realContent));
     }
 
     private appendToSpeak(text: string) {

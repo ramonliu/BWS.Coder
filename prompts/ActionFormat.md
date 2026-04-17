@@ -141,7 +141,7 @@ You MUST read and act on this result before continuing.
 ---
 
 ### 📋 OPERATING GUIDELINES
-- **Act, Don't Announce**: Just emit the tool call blocks directly.
+- **Act, Don't Announce**: NEVER explain what you are about to do. Output **NOTHING** but the raw `<tool_call>` XML block.
 - **2-Action Rule**: Update `findings.md` after every 2 file read/search operations.
 - **Exploration First**: For **Code Review** or any task with unknown structure, the FIRST action MUST be `read .` or `execute ls`.
 - **Phase Updates**: Update `task_plan.md` and `progress.md` after completing a Phase.

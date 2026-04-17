@@ -35,3 +35,18 @@ export function findAllBetween(text: string, startTag: string, endTag: string): 
     }
     return results;
 }
+
+/**
+ * Unescapes common XML entities (&lt;, &gt;, &amp;, &quot;, &apos;).
+ */
+export function unescapeXml(text: string): string {
+    if (!text) return text;
+    const entities: Record<string, string> = {
+        '&lt;': '<',
+        '&gt;': '>',
+        '&amp;': '&',
+        '&quot;': '"',
+        '&apos;': "'"
+    };
+    return text.replace(/&(lt|gt|amp|quot|apos);/g, (match) => entities[match]);
+}

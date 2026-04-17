@@ -222,22 +222,28 @@ export async function replaceFileContent(filePath: string, patchContent: string)
       return writeBack(parts.join(newCode));
     }
 
-    // ── Strategy 2: Line-by-line fuzzy match (ignores trailing whitespace) ───
-    // Each line in the search block is trimEnd()-compared against the file.
+    // ── Strategy 2: Line-by-line fuzzy match (ignores leading AND trailing whitespace) ─
+    // Each line in the search block is fully trim()-compared against the file.
+    // This handles cases where the AI-generated search block has mismatched indentation.
     // On match, the original file lines are replaced (preserving indentation
     // of non-replaced content), using the new block as-is.
     const fileLines = fileContent.split('\n');
-    const oldLines = oldCode.split('\n').map(l => l.trimEnd());
+    const oldLines = oldCode.split('\n').map(l => l.trim());
     const newLines = newCode.split('\n');
     const n = oldLines.length;
 
+    // Skip matching if all search lines are empty (would match anywhere)
+    const hasNonEmptySearchLine = oldLines.some(l => l.length > 0);
+
     let matchStart = -1;
-    outer: for (let i = 0; i <= fileLines.length - n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (fileLines[i + j].trimEnd() !== oldLines[j]) { continue outer; }
+    if (hasNonEmptySearchLine) {
+      outer: for (let i = 0; i <= fileLines.length - n; i++) {
+        for (let j = 0; j < n; j++) {
+          if (fileLines[i + j].trim() !== oldLines[j]) { continue outer; }
+        }
+        matchStart = i;
+        break;
       }
-      matchStart = i;
-      break;
     }
 
     if (matchStart >= 0) {

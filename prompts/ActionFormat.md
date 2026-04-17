@@ -51,6 +51,7 @@ You MUST read and act on this result before continuing.
 
 - **`replace`**: Partial edit using SEARCH/REPLACE.
   - `search`: The **EXACT, VERBATIM** existing text you want to replace. **CRITICAL**: You MUST NOT use ellipses (e.g., `...`), placeholders (e.g., `// ... existing code`), or summarize the middle of the block in ANY way. If the block is 50 lines long, you must output all 50 lines exactly character-by-character as they appear in the file. Otherwise, the replacement WILL FAIL.
+  - ❌ **SEPARATOR TRAP**: The conversation history may display visual separators (e.g., `====================`, `---`, `=====`) between messages or at the end of file previews. These are **NOT** part of the file content. **NEVER** include them in the `<search>` block — doing so guarantees a match failure.
   - `replace`: The new text to substitute in.
 <tool_call>
   <name>replace</name>

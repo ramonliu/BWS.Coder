@@ -265,13 +265,8 @@ export async function replaceFileContent(filePath: string, patchContent: string)
 
 /**
  * Finds the region in `fileLines` that has the most trim()-matched lines
- * against `searchLines`, then returns a line-by-line diff string showing
- * where the search block diverges from the actual file content.
- *
- * The diff uses:
- *   - (space)  identical line
- *   - [search] line only in the search block
- *   + [actual] line only in the file
+ * against `searchLines`, then returns a short hint pointing to the exact
+ * column of the first mismatched line.
  */
 function generateDiffHint(fileLines: string[], searchLines: string[]): string {
   const n = searchLines.length;
@@ -292,26 +287,31 @@ function generateDiffHint(fileLines: string[], searchLines: string[]): string {
     }
   }
 
-  // Build a line-by-line diff for the best matching window
-  const diffLines: string[] = [];
+  // Find the first mismatch in the best matching window
   const actualSlice = fileLines.slice(bestStart, bestStart + n);
-  let hasDiff = false;
   for (let i = 0; i < n; i++) {
     const s = searchLines[i];
     const a = actualSlice[i] ?? '';
-    if (s.trim() === a.trim()) {
-      diffLines.push(`  ${s}`);
-    } else {
-      diffLines.push(`- ${s}`);
-      diffLines.push(`+ ${a}`);
-      hasDiff = true;
+    
+    if (s.trim() !== a.trim()) {
+      let diffCol = 0;
+      while (diffCol < s.length && diffCol < a.length && s[diffCol] === a[diffCol]) {
+        diffCol++;
+      }
+      
+      let pointerLine = '';
+      for (let c = 0; c < diffCol; c++) {
+        pointerLine += (s[c] === '\t' ? '\t' : ' ');
+      }
+      
+      const lineNum = bestStart + i + 1;
+      pointerLine += '^^^^^ 不同處第 ' + lineNum + ' 行, 第 ' + (diffCol + 1) + ' 個字起';
+      
+      return `\n\n[差異提示]\n\`\`\`\n${s}\n${pointerLine}\n\`\`\`\n(檔案實際內容: ${a})`;
     }
   }
 
-  if (!hasDiff) return '';
-
-  const startLine = bestStart + 1; // 1-indexed
-  return `\n\n[差異提示 | 最接近區塊起於第 ${startLine} 行]\n\`\`\`diff\n${diffLines.join('\n')}\n\`\`\`\n- 行 = 您的 search 內容  + 行 = 檔案實際內容`;
+  return '';
 }
 
 export async function deleteFile(filePath: string): Promise<FileOpResult> {
